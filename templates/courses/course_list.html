@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}Courses{% endblock %}
+{% block page_title %}Courses{% endblock %}
+
+{% block topbar_actions %}
+<form method="get" style="display:flex;gap:8px;align-items:center;">
+  <div style="position:relative;">
+    <i class="bi bi-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#64748b;font-size:13px;"></i>
+    <input type="text" name="search" value="{{ search }}" placeholder="Search courses..."
+      style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;padding:8px 12px 8px 34px;color:#e2e8f0;font-size:13px;width:200px;font-family:'DM Sans',sans-serif;">
+  </div>
+  <select name="department" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:9px;padding:8px 12px;color:#e2e8f0;font-size:13px;font-family:'DM Sans',sans-serif;">
+    <option value="">All Departments</option>
+    {% for code, name in departments %}
+    <option value="{{ code }}" {% if selected_dept == code %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn-ghost" style="padding:8px 14px;font-size:13px;">Filter</button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+  <!-- Stats row -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;">
+    <div class="card-glass" style="display:flex;align-items:center;gap:14px;padding:18px;">
+      <div style="width:40px;height:40px;background:rgba(79,142,247,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">
+        <i class="bi bi-book-fill" style="color:#4f8ef7;"></i>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:#e2e8f0;line-height:1;">{{ courses|length }}</div>
+        <div style="font-size:12px;color:#64748b;">Courses Shown</div>
+      </div>
+    </div>
+    <div class="card-glass" style="display:flex;align-items:center;gap:14px;padding:18px;">
+      <div style="width:40px;height:40px;background:rgba(124,92,191,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">
+        <i class="bi bi-collection-fill" style="color:#7c5cbf;"></i>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:#e2e8f0;line-height:1;">
+          {% for c in courses %}{{ c.quiz_count_ann }}{% if not forloop.last %}+{% endif %}{% empty %}0{% endfor %}
+        </div>
+        <div style="font-size:12px;color:#64748b;">Total Quizzes</div>
+      </div>
+    </div>
+    <div class="card-glass" style="display:flex;align-items:center;gap:14px;padding:18px;">
+      <div style="width:40px;height:40px;background:rgba(34,197,94,0.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">
+        <i class="bi bi-buildings-fill" style="color:#22c55e;"></i>
+      </div>
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:26px;font-weight:700;color:#e2e8f0;line-height:1;">
+          {{ courses|length }}
+        </div>
+        <div style="font-size:12px;color:#64748b;">Active Courses</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Courses table -->
+  <div class="card-glass" style="padding:0;overflow:hidden;">
+    <div style="padding:20px 24px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;">
+      <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Course Directory</div>
+      {% if search or selected_dept %}
+      <a href="{% url 'course_list' %}" style="font-size:12px;color:#64748b;text-decoration:none;display:flex;align-items:center;gap:4px;">
+        <i class="bi bi-x-circle"></i> Clear Filters
+      </a>
+      {% endif %}
+    </div>
+
+    {% if courses %}
+    <table class="table-glass">
+      <thead>
+        <tr>
+          <th>Course Code</th>
+          <th>Course Name</th>
+          <th>Department</th>
+          <th>Semester</th>
+          <th>Quizzes</th>
+          <th>Questions</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for course in courses %}
+        <tr>
+          <td>
+            <span style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:#4f8ef7;background:rgba(79,142,247,0.08);padding:3px 8px;border-radius:6px;">
+              {{ course.course_code }}
+            </span>
+          </td>
+          <td>
+            <div style="color:#e2e8f0;font-weight:500;font-size:14px;">{{ course.course_name }}</div>
+            {% if course.description %}
+            <div style="font-size:11px;color:#64748b;margin-top:2px;">{{ course.description|truncatechars:60 }}</div>
+            {% endif %}
+          </td>
+          <td>
+            <span style="font-size:12px;font-weight:600;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);padding:3px 10px;border-radius:6px;color:#94a3b8;">
+              {{ course.get_department_display }}
+            </span>
+          </td>
+          <td style="color:#94a3b8;font-size:13px;">Sem {{ course.semester }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-collection" style="color:#7c5cbf;font-size:13px;"></i>
+              <span style="color:#e2e8f0;font-weight:600;">{{ course.quiz_count_ann }}</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-question-circle" style="color:#f59e0b;font-size:13px;"></i>
+              <span style="color:#e2e8f0;font-weight:600;">{{ course.question_count_ann }}</span>
+            </div>
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <a href="{% url 'quiz_list' course.id %}" class="btn-ghost" style="padding:6px 12px;font-size:12px;">
+                <i class="bi bi-collection"></i> Quizzes
+              </a>
+              <a href="{% url 'generate_paper' %}?course={{ course.id }}" class="btn-primary-custom" style="padding:6px 12px;font-size:12px;">
+                <i class="bi bi-magic"></i>
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:60px;color:#64748b;">
+      <i class="bi bi-inbox" style="font-size:48px;display:block;margin-bottom:14px;opacity:.3;"></i>
+      <div style="font-size:16px;margin-bottom:6px;">No courses found</div>
+      <div style="font-size:13px;">Try adjusting your search or sync from Moodle/TRMS</div>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+  <!-- Welcome banner -->
+  <div style="background:linear-gradient(135deg,rgba(79,142,247,0.1) 0%,rgba(124,92,191,0.1) 100%);border:1px solid rgba(79,142,247,0.15);border-radius:16px;padding:24px 28px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#e2e8f0;margin-bottom:4px;">
+        Good day, {{ request.user.first_name }}! 👋
+      </div>
+      <div style="font-size:14px;color:#94a3b8;">
+        {{ request.user.get_department_display }} &nbsp;·&nbsp; {{ request.user.designation|default:"Faculty" }}
+      </div>
+    </div>
+    <a href="{% url 'generate_paper' %}" class="btn-primary-custom" style="font-size:14px;padding:12px 22px;">
+      <i class="bi bi-magic"></i> Generate Paper
+    </a>
+  </div>
+
+  <!-- Stat cards -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;">
+
+    <div class="stat-card fade-in fade-in-delay-1">
+      <div class="stat-icon" style="background:rgba(79,142,247,0.1);">
+        <i class="bi bi-book-fill" style="color:#4f8ef7;"></i>
+      </div>
+      <div class="stat-value">{{ total_courses }}</div>
+      <div class="stat-label">Total Courses</div>
+      <a href="{% url 'course_list' %}" style="font-size:12px;color:#4f8ef7;text-decoration:none;display:flex;align-items:center;gap:4px;margin-top:10px;">
+        View all <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="stat-card fade-in fade-in-delay-2">
+      <div class="stat-icon" style="background:rgba(245,158,11,0.1);">
+        <i class="bi bi-patch-question-fill" style="color:#f59e0b;"></i>
+      </div>
+      <div class="stat-value">{{ total_questions }}</div>
+      <div class="stat-label">Questions Available</div>
+      <a href="{% url 'question_bank' %}" style="font-size:12px;color:#f59e0b;text-decoration:none;display:flex;align-items:center;gap:4px;margin-top:10px;">
+        Browse <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="stat-card fade-in fade-in-delay-3">
+      <div class="stat-icon" style="background:rgba(124,92,191,0.1);">
+        <i class="bi bi-collection-fill" style="color:#7c5cbf;"></i>
+      </div>
+      <div class="stat-value">{{ total_quizzes }}</div>
+      <div class="stat-label">Active Quizzes</div>
+    </div>
+
+    <div class="stat-card fade-in fade-in-delay-4">
+      <div class="stat-icon" style="background:rgba(34,197,94,0.1);">
+        <i class="bi bi-file-earmark-check-fill" style="color:#22c55e;"></i>
+      </div>
+      <div class="stat-value">{{ my_papers }}</div>
+      <div class="stat-label">Papers Generated</div>
+      <a href="{% url 'generated_papers' %}" style="font-size:12px;color:#22c55e;text-decoration:none;display:flex;align-items:center;gap:4px;margin-top:10px;">
+        View <i class="bi bi-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- Two column layout -->
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;">
+
+    <!-- Recent papers -->
+    <div class="card-glass">
+      <div class="section-header">
+        <div class="section-title">Recent Papers</div>
+        <a href="{% url 'generated_papers' %}" class="btn-ghost" style="padding:7px 14px;font-size:12px;">
+          View All <i class="bi bi-arrow-right"></i>
+        </a>
+      </div>
+
+      {% if recent_papers %}
+      <table class="table-glass">
+        <thead>
+          <tr>
+            <th>Paper ID</th>
+            <th>Course</th>
+            <th>Set</th>
+            <th>Questions</th>
+            <th>Generated</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for paper in recent_papers %}
+          <tr>
+            <td>
+              <span style="font-family:'DM Mono',monospace;font-size:12px;color:#4f8ef7;">{{ paper.paper_id }}</span>
+            </td>
+            <td>
+              <div style="color:#e2e8f0;font-weight:500;font-size:13px;">{{ paper.course.course_code }}</div>
+              <div style="font-size:11px;color:#64748b;">{{ paper.course.course_name|truncatechars:35 }}</div>
+            </td>
+            <td>
+              <span style="background:rgba(79,142,247,0.15);color:#4f8ef7;border:1px solid rgba(79,142,247,0.25);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700;">
+                Set {{ paper.set_name }}
+              </span>
+            </td>
+            <td style="color:#e2e8f0;">{{ paper.total_questions }}</td>
+            <td style="font-size:12px;color:#64748b;">{{ paper.generated_at|date:"d M, H:i" }}</td>
+            <td>
+              <a href="{% url 'paper_detail' paper.id %}" class="btn-ghost" style="padding:5px 10px;font-size:12px;">
+                <i class="bi bi-eye"></i>
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div style="text-align:center;padding:48px;color:#64748b;">
+        <i class="bi bi-file-earmark-plus" style="font-size:40px;display:block;margin-bottom:12px;opacity:.4;"></i>
+        <div style="font-size:15px;margin-bottom:8px;">No papers generated yet</div>
+        <a href="{% url 'generate_paper' %}" class="btn-primary-custom" style="margin-top:4px;font-size:13px;">
+          <i class="bi bi-magic"></i> Generate First Paper
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Right sidebar -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Question difficulty distribution -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:18px;">
+          Question Distribution
+        </div>
+
+        {% with total=easy_count|add:medium_count|add:hard_count %}
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
+              <span style="color:#22c55e;font-weight:600;display:flex;align-items:center;gap:5px;">
+                <i class="bi bi-circle-fill" style="font-size:7px;"></i> Easy
+              </span>
+              <span style="color:#94a3b8;">{{ easy_count }}</span>
+            </div>
+            <div class="progress-bar-custom">
+              <div class="progress-fill" style="width:{% if total %}{% widthratio easy_count total 100 %}{% else %}0{% endif %}%;background:linear-gradient(90deg,#22c55e,#16a34a);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
+              <span style="color:#f59e0b;font-weight:600;display:flex;align-items:center;gap:5px;">
+                <i class="bi bi-circle-fill" style="font-size:7px;"></i> Medium
+              </span>
+              <span style="color:#94a3b8;">{{ medium_count }}</span>
+            </div>
+            <div class="progress-bar-custom">
+              <div class="progress-fill" style="width:{% if total %}{% widthratio medium_count total 100 %}{% else %}0{% endif %}%;background:linear-gradient(90deg,#f59e0b,#d97706);"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">
+              <span style="color:#ef4444;font-weight:600;display:flex;align-items:center;gap:5px;">
+                <i class="bi bi-circle-fill" style="font-size:7px;"></i> Hard
+              </span>
+              <span style="color:#94a3b8;">{{ hard_count }}</span>
+            </div>
+            <div class="progress-bar-custom">
+              <div class="progress-fill" style="width:{% if total %}{% widthratio hard_count total 100 %}{% else %}0{% endif %}%;background:linear-gradient(90deg,#ef4444,#dc2626);"></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.05);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:#64748b;">Total Questions</span>
+          <span style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#e2e8f0;">{{ total }}</span>
+        </div>
+        {% endwith %}
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:14px;">
+          Quick Actions
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <a href="{% url 'generate_paper' %}" class="btn-primary-custom" style="justify-content:center;">
+            <i class="bi bi-magic"></i> Generate Paper
+          </a>
+          <a href="{% url 'question_bank' %}" class="btn-ghost" style="justify-content:center;">
+            <i class="bi bi-search"></i> Browse Questions
+          </a>
+          <a href="{% url 'course_list' %}" class="btn-ghost" style="justify-content:center;">
+            <i class="bi bi-book"></i> View Courses
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

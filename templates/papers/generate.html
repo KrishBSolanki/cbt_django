@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% block title %}Generate Paper{% endblock %}
+{% block page_title %}Generate Question Paper{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="paperGenerator()" x-init="init()">
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+
+    <!-- Main form -->
+    <div>
+
+      <!-- Step 1: Course & Quiz -->
+      <div class="card-glass" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <div style="width:28px;height:28px;background:linear-gradient(135deg,#4f8ef7,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">1</div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Course & Quiz</div>
+        </div>
+
+        <form method="post" action="{% url 'generate_paper' %}" id="generateForm">
+          {% csrf_token %}
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div>
+              <label class="form-label-dark">Course *</label>
+              <select name="course_id" class="form-control-dark" x-model="courseId" @change="onCourseChange()" required>
+                <option value="">— Select Course —</option>
+                {% for course in courses %}
+                <option value="{{ course.id }}" {% if request.GET.course == course.id|stringformat:"s" %}selected{% endif %}>
+                  {{ course.course_code }} — {{ course.course_name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label-dark">Quiz (Optional)</label>
+              <select name="quiz_id" class="form-control-dark" x-model="quizId" @change="onQuizChange()">
+                <option value="">— All quizzes —</option>
+                <template x-for="quiz in quizzes" :key="quiz.id">
+                  <option :value="quiz.id" x-text="quiz.name + ' (' + quiz.question_count + ' Q)'"></option>
+                </template>
+              </select>
+              <div x-show="loadingQuizzes" style="font-size:11px;color:#64748b;margin-top:4px;">
+                <i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;display:inline-block;"></i> Loading quizzes...
+              </div>
+            </div>
+          </div>
+
+          <!-- Question availability -->
+          <div x-show="stats.total > 0"
+            style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:10px;padding:14px 16px;margin-top:4px;">
+            <div style="font-size:12px;font-weight:600;color:#93c5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-info-circle-fill"></i> Available Questions
+            </div>
+            <div style="display:flex;gap:20px;">
+              <div style="text-align:center;">
+                <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#22c55e;" x-text="stats.easy"></div>
+                <div style="font-size:11px;color:#64748b;">Easy</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#f59e0b;" x-text="stats.medium"></div>
+                <div style="font-size:11px;color:#64748b;">Medium</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#ef4444;" x-text="stats.hard"></div>
+                <div style="font-size:11px;color:#64748b;">Hard</div>
+              </div>
+              <div style="text-align:center;margin-left:auto;">
+                <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#e2e8f0;" x-text="stats.total"></div>
+                <div style="font-size:11px;color:#64748b;">Total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Total Questions -->
+      <div class="card-glass" style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <div style="width:28px;height:28px;background:linear-gradient(135deg,#7c5cbf,#a855f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">2</div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Total Questions</div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:20px;">
+          <div style="flex:1;">
+            <label class="form-label-dark">Number of Questions per Set</label>
+            <input type="number" name="total_questions" x-model.number="totalQ"
+              min="3" max="200" value="30" class="form-control-dark"
+              style="font-size:20px;font-weight:700;text-align:center;padding:16px;" required>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button type="button" class="btn-ghost" style="padding:8px 14px;" @click="totalQ = Math.min(200, totalQ + 5)">+5</button>
+            <button type="button" class="btn-ghost" style="padding:8px 14px;" @click="totalQ = Math.min(200, totalQ + 10)">+10</button>
+            <button type="button" class="btn-ghost" style="padding:8px 14px;" @click="totalQ = Math.max(3, totalQ - 5)">−5</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3: Difficulty Distribution -->
+      <div class="card-glass" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+          <div style="width:28px;height:28px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">3</div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Difficulty Distribution</div>
+          <div style="margin-left:auto;font-size:13px;padding:4px 12px;border-radius:8px;"
+            :style="totalPct == 100 ? 'background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2)' : 'background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.2)'"
+            x-text="totalPct == 100 ? '✓ 100% — Perfect!' : totalPct + '% — Must equal 100%'">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+          <!-- Easy -->
+          <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:12px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+              <span style="font-size:16px;">🟢</span>
+              <span style="font-size:13px;font-weight:600;color:#22c55e;">Easy</span>
+            </div>
+            <input type="number" name="easy_pct" x-model.number="easyPct"
+              min="0" max="100" class="form-control-dark"
+              style="font-size:24px;font-weight:700;text-align:center;padding:12px;border-color:rgba(34,197,94,0.3);" required>
+            <div style="text-align:center;font-size:11px;color:#64748b;margin-top:8px;">%</div>
+            <div style="text-align:center;font-size:13px;font-weight:600;color:#22c55e;margin-top:4px;"
+              x-text="Math.floor(totalQ * easyPct / 100) + ' questions'"></div>
+          </div>
+
+          <!-- Medium -->
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.15);border-radius:12px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+              <span style="font-size:16px;">🟡</span>
+              <span style="font-size:13px;font-weight:600;color:#f59e0b;">Medium</span>
+            </div>
+            <input type="number" name="medium_pct" x-model.number="mediumPct"
+              min="0" max="100" class="form-control-dark"
+              style="font-size:24px;font-weight:700;text-align:center;padding:12px;border-color:rgba(245,158,11,0.3);" required>
+            <div style="text-align:center;font-size:11px;color:#64748b;margin-top:8px;">%</div>
+            <div style="text-align:center;font-size:13px;font-weight:600;color:#f59e0b;margin-top:4px;"
+              x-text="Math.floor(totalQ * mediumPct / 100) + ' questions'"></div>
+          </div>
+
+          <!-- Hard -->
+          <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:12px;padding:16px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+              <span style="font-size:16px;">🔴</span>
+              <span style="font-size:13px;font-weight:600;color:#ef4444;">Hard</span>
+            </div>
+            <input type="number" name="hard_pct" x-model.number="hardPct"
+              min="0" max="100" class="form-control-dark"
+              style="font-size:24px;font-weight:700;text-align:center;padding:12px;border-color:rgba(239,68,68,0.3);" required>
+            <div style="text-align:center;font-size:11px;color:#64748b;margin-top:8px;">%</div>
+            <div style="text-align:center;font-size:13px;font-weight:600;color:#ef4444;margin-top:4px;"
+              x-text="(totalQ - Math.floor(totalQ * easyPct / 100) - Math.floor(totalQ * mediumPct / 100)) + ' questions'"></div>
+          </div>
+        </div>
+
+        <!-- Distribution bar -->
+        <div style="border-radius:8px;overflow:hidden;height:10px;display:flex;gap:2px;" x-show="totalPct == 100">
+          <div :style="'flex:' + easyPct + ';background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:4px 0 0 4px;transition:all .3s;'" x-show="easyPct > 0"></div>
+          <div :style="'flex:' + mediumPct + ';background:linear-gradient(90deg,#f59e0b,#d97706);transition:all .3s;'" x-show="mediumPct > 0"></div>
+          <div :style="'flex:' + hardPct + ';background:linear-gradient(90deg,#ef4444,#dc2626);border-radius:0 4px 4px 0;transition:all .3s;'" x-show="hardPct > 0"></div>
+        </div>
+
+        <!-- Quick presets -->
+        <div style="margin-top:14px;">
+          <div style="font-size:11px;color:#64748b;margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">Quick Presets</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn-ghost" style="padding:5px 12px;font-size:12px;" @click="easyPct=40;mediumPct=40;hardPct=20">40/40/20</button>
+            <button type="button" class="btn-ghost" style="padding:5px 12px;font-size:12px;" @click="easyPct=30;mediumPct=50;hardPct=20">30/50/20</button>
+            <button type="button" class="btn-ghost" style="padding:5px 12px;font-size:12px;" @click="easyPct=50;mediumPct=30;hardPct=20">50/30/20</button>
+            <button type="button" class="btn-ghost" style="padding:5px 12px;font-size:12px;" @click="easyPct=33;mediumPct=34;hardPct=33">Equal</button>
+          </div>
+        </div>
+      </div>
+
+          <!-- Submit -->
+          <button type="submit" class="btn-primary-custom"
+            style="width:100%;justify-content:center;padding:16px;font-size:15px;"
+            :disabled="totalPct != 100 || !courseId"
+            :style="totalPct != 100 || !courseId ? 'opacity:0.5;cursor:not-allowed;' : ''">
+            <i class="bi bi-magic"></i>
+            Generate 3 Paper Sets (A, B, C)
+          </button>
+        </form>
+
+    </div>
+
+    <!-- Right preview panel -->
+    <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Paper preview -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
+          Paper Preview
+        </div>
+
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px;margin-bottom:12px;">
+          <div style="font-size:10px;color:#64748b;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px;">Sets Generated</div>
+          <div style="display:flex;gap:8px;">
+            {% for set in "ABC" %}
+            <div style="flex:1;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,92,191,0.1));border:1px solid rgba(79,142,247,0.2);border-radius:8px;padding:12px;text-align:center;">
+              <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#4f8ef7;">{{ set }}</div>
+              <div style="font-size:10px;color:#64748b;">Set {{ set }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:#64748b;">Total Questions</span>
+            <span style="color:#e2e8f0;font-weight:600;" x-text="totalQ + ' per set'">30 per set</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:#64748b;">Easy (🟢)</span>
+            <span style="color:#22c55e;font-weight:600;" x-text="Math.floor(totalQ * easyPct / 100) + ' Q (' + easyPct + '%)'"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:#64748b;">Medium (🟡)</span>
+            <span style="color:#f59e0b;font-weight:600;" x-text="Math.floor(totalQ * mediumPct / 100) + ' Q (' + mediumPct + '%)'"></span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;">
+            <span style="color:#64748b;">Hard (🔴)</span>
+            <span style="color:#ef4444;font-weight:600;" x-text="(totalQ - Math.floor(totalQ * easyPct / 100) - Math.floor(totalQ * mediumPct / 100)) + ' Q (' + hardPct + '%)'"></span>
+          </div>
+          <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;display:flex;justify-content:space-between;font-size:13px;margin-top:4px;">
+            <span style="color:#64748b;">Total papers</span>
+            <span style="color:#e2e8f0;font-weight:600;">3 sets × <span x-text="totalQ"></span> Q = <span x-text="totalQ * 3"></span> Q</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Info card -->
+      <div style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+          <i class="bi bi-lightbulb-fill"></i> How It Works
+        </div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.7;">
+          The system randomly selects questions from the question bank based on your difficulty settings. Each set (A, B, C) avoids repeating questions from the other sets where possible.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script>
+function paperGenerator() {
+  return {
+    courseId: '{{ request.GET.course|default:"" }}',
+    quizId: '{{ request.GET.quiz|default:"" }}',
+    totalQ: 30,
+    easyPct: 40,
+    mediumPct: 40,
+    hardPct: 20,
+    quizzes: [],
+    loadingQuizzes: false,
+    stats: { easy: 0, medium: 0, hard: 0, total: 0 },
+
+    get totalPct() { return this.easyPct + this.mediumPct + this.hardPct; },
+
+    init() {
+      if (this.courseId) {
+        this.loadQuizzes();
+        this.loadStats();
+      }
+    },
+
+    async onCourseChange() {
+      this.quizId = '';
+      this.quizzes = [];
+      this.stats = { easy: 0, medium: 0, hard: 0, total: 0 };
+      if (this.courseId) {
+        await this.loadQuizzes();
+        await this.loadStats();
+      }
+    },
+
+    async onQuizChange() {
+      await this.loadStats();
+    },
+
+    async loadQuizzes() {
+      this.loadingQuizzes = true;
+      try {
+        const r = await fetch(`/papers/api/quizzes/${this.courseId}/`);
+        const d = await r.json();
+        this.quizzes = d.quizzes;
+      } catch(e) {}
+      this.loadingQuizzes = false;
+    },
+
+    async loadStats() {
+      if (!this.courseId) return;
+      try {
+        const url = `/papers/api/stats/${this.courseId}/${this.quizId ? '?quiz_id=' + this.quizId : ''}`;
+        const r = await fetch(url);
+        this.stats = await r.json();
+      } catch(e) {}
+    }
+  }
+}
+</script>
+{% endblock %}

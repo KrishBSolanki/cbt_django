@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Paper Sets — {{ group_id }}{% endblock %}
+{% block page_title %}Generated Papers{% endblock %}
+
+{% block topbar_actions %}
+<div style="display:flex;gap:8px;">
+  {% for paper in papers %}
+  <a href="{% url 'export_paper_txt' paper.id %}" class="btn-ghost" style="padding:8px 14px;font-size:12px;">
+    <i class="bi bi-download"></i> Export Set {{ paper.set_name }}
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+  <!-- Success banner -->
+  <div style="background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(16,185,129,0.08));border:1px solid rgba(34,197,94,0.2);border-radius:16px;padding:20px 24px;margin-bottom:24px;display:flex;align-items:center;gap:16px;">
+    <div style="width:48px;height:48px;background:rgba(34,197,94,0.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;">✅</div>
+    <div>
+      <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#e2e8f0;">3 Paper Sets Generated Successfully!</div>
+      <div style="font-size:13px;color:#94a3b8;margin-top:3px;">
+        Course: <strong style="color:#e2e8f0;">{{ course.course_name }}</strong> &nbsp;·&nbsp;
+        Group ID: <span style="font-family:'DM Mono',monospace;color:#4f8ef7;">{{ group_id }}</span>
+      </div>
+    </div>
+    <a href="{% url 'generate_paper' %}" class="btn-ghost" style="margin-left:auto;padding:9px 16px;font-size:13px;">
+      <i class="bi bi-plus"></i> Generate Another
+    </a>
+  </div>
+
+  <!-- Set tabs -->
+  <div x-data="{ activeSet: 'A' }">
+
+    <!-- Tab buttons -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;">
+      {% for paper in papers %}
+      <button @click="activeSet = '{{ paper.set_name }}'"
+        :class="activeSet === '{{ paper.set_name }}' ? 'btn-primary-custom' : 'btn-ghost'"
+        style="padding:10px 24px;font-size:14px;font-weight:600;">
+        <i class="bi bi-file-text"></i> Set {{ paper.set_name }}
+        <span style="opacity:0.7;font-weight:400;font-size:12px;">·&nbsp;{{ paper.total_questions }} Q</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    {% for paper in papers %}
+    <div x-show="activeSet === '{{ paper.set_name }}'" x-transition>
+
+      <!-- Paper header info -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+        <div class="card-glass" style="padding:14px 18px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Paper ID</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:#4f8ef7;">{{ paper.paper_id }}</div>
+        </div>
+        <div class="card-glass" style="padding:14px 18px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Questions</div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#e2e8f0;">{{ paper.total_questions }}</div>
+        </div>
+        <div class="card-glass" style="padding:14px 18px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Total Marks</div>
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#e2e8f0;">{{ paper.total_marks }}</div>
+        </div>
+        <div class="card-glass" style="padding:14px 18px;">
+          <div style="font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Difficulty Mix</div>
+          <div style="font-size:12px;display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+            <span style="color:#22c55e;font-weight:600;">{{ paper.easy_count }}E</span>
+            <span style="color:#64748b;">·</span>
+            <span style="color:#f59e0b;font-weight:600;">{{ paper.medium_count }}M</span>
+            <span style="color:#64748b;">·</span>
+            <span style="color:#ef4444;font-weight:600;">{{ paper.hard_count }}H</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Questions list -->
+      <div class="card-glass" style="padding:0;overflow:hidden;">
+        <div style="padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">
+            Question List — Set {{ paper.set_name }}
+          </div>
+          <a href="{% url 'export_paper_txt' paper.id %}" class="btn-ghost" style="padding:7px 14px;font-size:12px;">
+            <i class="bi bi-download"></i> Export TXT
+          </a>
+        </div>
+
+        <table class="table-glass">
+          <thead>
+            <tr>
+              <th width="50">No.</th>
+              <th>Question</th>
+              <th width="100">Difficulty</th>
+              <th width="100">Type</th>
+              <th width="80">Marks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pq in paper.paper_questions.all %}
+            <tr>
+              <td style="color:#64748b;font-size:13px;text-align:center;font-weight:600;">{{ pq.question_number }}</td>
+              <td>
+                <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{{ pq.question.question_text|truncatechars:200 }}</div>
+                {% if pq.question.answers.all %}
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;">
+                  {% for ans in pq.question.answers.all %}
+                  <div style="font-size:12px;display:flex;align-items:center;gap:6px;{% if ans.is_correct %}color:#22c55e;{% else %}color:#64748b;{% endif %}">
+                    <span style="width:18px;height:18px;background:{% if ans.is_correct %}rgba(34,197,94,0.15){% else %}rgba(255,255,255,0.04){% endif %};border:1px solid {% if ans.is_correct %}rgba(34,197,94,0.3){% else %}rgba(255,255,255,0.08){% endif %};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">
+                      {{ forloop.parentloop.counter0|add:0 }}{% cycle 'A' 'B' 'C' 'D' 'E' %}
+                    </span>
+                    {{ ans.answer_text|truncatechars:80 }}
+                    {% if ans.is_correct %}<i class="bi bi-check-circle-fill" style="font-size:11px;"></i>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="pill {% if pq.question.difficulty == 'easy' %}badge-easy{% elif pq.question.difficulty == 'medium' %}badge-medium{% else %}badge-hard{% endif %}">
+                  {{ pq.question.get_difficulty_display }}
+                </span>
+              </td>
+              <td style="font-size:11px;color:#64748b;">{{ pq.question.get_question_type_display }}</td>
+              <td style="font-weight:600;color:#e2e8f0;font-size:13px;">{{ pq.marks }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+
+</div>
+{% endblock %}
