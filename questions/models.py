@@ -11,18 +11,18 @@ class QuestionCategory(models.Model):
     Question Category model
     Table: dj_question_category
     """
-    name = models.CharField(max_length=200)
-    description = models.TextField(blank=True)
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, null=True, blank=True, related_name='categories')
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='subcategories')
-    moodle_category_id = models.IntegerField(null=True, blank=True)
+    name = models.CharField(max_length=255)
+    moodle_category_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    difficulty = models.CharField(max_length=16)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'dj_question_category'
         verbose_name = 'Question Category'
         verbose_name_plural = 'Question Categories'
+        managed = False
 
     def __str__(self):
         return self.name
@@ -49,18 +49,18 @@ class Question(models.Model):
         ('calculated', 'Calculated'),
     ]
 
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='questions')
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     category = models.ForeignKey(QuestionCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
 
-    question_text = models.TextField()
-    question_type = models.CharField(max_length=20, choices=QUESTION_TYPE_CHOICES, default='multichoice')
-    difficulty = models.CharField(max_length=10, choices=DIFFICULTY_CHOICES, default='medium')
+    question_text = models.TextField(db_column='text')
+    question_type = models.CharField(max_length=64, choices=QUESTION_TYPE_CHOICES)
+    difficulty = models.CharField(max_length=16, choices=DIFFICULTY_CHOICES, default='medium')
     marks = models.DecimalField(max_digits=5, decimal_places=2, default=1.0)
-    tags = models.CharField(max_length=500, blank=True, help_text='Comma-separated tags')
 
-    # Moodle sync
-    moodle_question_id = models.IntegerField(null=True, blank=True, unique=True)
+    answer_data = models.JSONField(db_column='answer_data')
+
+    moodle_question_id = models.BigIntegerField(null=True, blank=True, unique=True)
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -70,6 +70,7 @@ class Question(models.Model):
         db_table = 'dj_questions'
         verbose_name = 'Question'
         verbose_name_plural = 'Questions'
+        managed = False
 
     def __str__(self):
         return f"Q{self.id}: {self.question_text[:80]}..."
@@ -77,21 +78,3 @@ class Question(models.Model):
     @property
     def short_text(self):
         return self.question_text[:120] + '...' if len(self.question_text) > 120 else self.question_text
-
-
-class QuestionAnswer(models.Model):
-    """
-    Answer options for questions
-    """
-    question = models.ForeignKey(Question, on_delete=models.CASCADE, related_name='answers')
-    answer_text = models.TextField()
-    is_correct = models.BooleanField(default=False)
-    fraction = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
-    feedback = models.TextField(blank=True)
-    moodle_answer_id = models.IntegerField(null=True, blank=True)
-
-    class Meta:
-        db_table = 'dj_question_answers'
-
-    def __str__(self):
-        return f"{'✓' if self.is_correct else '✗'} {self.answer_text[:50]}"

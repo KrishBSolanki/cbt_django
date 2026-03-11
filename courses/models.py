@@ -11,31 +11,14 @@ class Course(models.Model):
     Course model synced from TRMS and Moodle
     Table: dj_courses
     """
-    DEPARTMENT_CHOICES = [
-        ('CSE', 'Computer Science & Engineering'),
-        ('ECE', 'Electronics & Communication'),
-        ('ME', 'Mechanical Engineering'),
-        ('CE', 'Civil Engineering'),
-        ('EEE', 'Electrical & Electronics'),
-        ('IT', 'Information Technology'),
-        ('MBA', 'Business Administration'),
-        ('MCA', 'Computer Applications'),
-        ('OTHER', 'Other'),
-    ]
-
-    SEMESTER_CHOICES = [(i, f'Semester {i}') for i in range(1, 9)]
-
-    course_code = models.CharField(max_length=20, unique=True)
-    course_name = models.CharField(max_length=200)
-    department = models.CharField(max_length=10, choices=DEPARTMENT_CHOICES, default='CSE')
-    semester = models.IntegerField(choices=SEMESTER_CHOICES, default=1)
-    credits = models.IntegerField(default=3)
-    description = models.TextField(blank=True)
+    course_code = models.CharField(max_length=50, unique=True, db_column='code')
+    course_name = models.CharField(max_length=255, db_column='name')
+    department = models.CharField(max_length=128)
     is_active = models.BooleanField(default=True)
 
     # External IDs for sync
-    moodle_course_id = models.IntegerField(null=True, blank=True, unique=True)
-    trms_course_id = models.IntegerField(null=True, blank=True)
+    moodle_course_id = models.BigIntegerField(null=True, blank=True, unique=True)
+    trms_course_id = models.BigIntegerField(null=True, blank=True, unique=True)
 
     # Faculty mapping
     faculty = models.ManyToManyField(Faculty, through='CourseFaculty', related_name='courses')
@@ -48,6 +31,7 @@ class Course(models.Model):
         verbose_name = 'Course'
         verbose_name_plural = 'Courses'
         ordering = ['course_code']
+        managed = False
 
     def __str__(self):
         return f"{self.course_code} - {self.course_name}"
@@ -79,14 +63,12 @@ class Quiz(models.Model):
     Table: dj_quizzes
     """
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='quizzes')
-    quiz_name = models.CharField(max_length=300)
-    description = models.TextField(blank=True)
-    total_marks = models.IntegerField(default=0)
-    time_limit = models.IntegerField(null=True, blank=True, help_text='Time in minutes')
+    quiz_name = models.CharField(max_length=255, db_column='title')
+    description = models.TextField()
+    moodle_quiz_id = models.BigIntegerField(null=True, blank=True)
+    total_questions = models.PositiveIntegerField()
+    duration_minutes = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
-
-    # Moodle sync
-    moodle_quiz_id = models.IntegerField(null=True, blank=True, unique=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,6 +78,7 @@ class Quiz(models.Model):
         verbose_name = 'Quiz'
         verbose_name_plural = 'Quizzes'
         ordering = ['quiz_name']
+        managed = False
 
     def __str__(self):
         return f"{self.quiz_name} ({self.course.course_code})"

@@ -122,8 +122,6 @@ class PaperGroupPreviewView(View):
     def get(self, request, group_id):
         papers = GeneratedPaper.objects.filter(
             paper_group_id=group_id
-        ).prefetch_related(
-            'paper_questions__question__answers',
         ).order_by('set_name')
 
         if not papers.exists():
@@ -176,7 +174,7 @@ def paper_detail(request, paper_id):
     paper = get_object_or_404(GeneratedPaper, id=paper_id)
     paper_questions = PaperQuestion.objects.filter(paper=paper).select_related(
         'question__category', 'question__course'
-    ).prefetch_related('question__answers').order_by('question_number')
+    ).order_by('question_number')
 
     context = {
         'paper': paper,
@@ -192,7 +190,7 @@ def export_paper_txt(request, paper_id):
     paper = get_object_or_404(GeneratedPaper, id=paper_id)
     paper_questions = PaperQuestion.objects.filter(paper=paper).select_related(
         'question'
-    ).prefetch_related('question__answers').order_by('question_number')
+    ).order_by('question_number')
 
     lines = [
         "=" * 70,
@@ -218,10 +216,10 @@ def export_paper_txt(request, paper_id):
         q = pq.question
         lines.append(f"Q{pq.question_number}. [{q.get_difficulty_display().upper()}] [{pq.marks} marks]")
         lines.append(f"   {q.question_text}")
-        
-        for idx, answer in enumerate(q.answers.all()):
+
+        for idx, answer in enumerate(q.answer_data or []):
             option = chr(65 + idx)  # A, B, C, D
-            lines.append(f"   {option}) {answer.answer_text}")
+            lines.append(f"   {option}) {answer.get('answer_text', '')}")
         lines.append("")
 
     content = "\n".join(lines)

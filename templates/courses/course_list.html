@@ -75,7 +75,6 @@
           <th>Course Code</th>
           <th>Course Name</th>
           <th>Department</th>
-          <th>Semester</th>
           <th>Quizzes</th>
           <th>Questions</th>
           <th>Action</th>
@@ -91,16 +90,12 @@
           </td>
           <td>
             <div style="color:#e2e8f0;font-weight:500;font-size:14px;">{{ course.course_name }}</div>
-            {% if course.description %}
-            <div style="font-size:11px;color:#64748b;margin-top:2px;">{{ course.description|truncatechars:60 }}</div>
-            {% endif %}
           </td>
           <td>
             <span style="font-size:12px;font-weight:600;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);padding:3px 10px;border-radius:6px;color:#94a3b8;">
-              {{ course.get_department_display }}
+              {{ course.department }}
             </span>
           </td>
-          <td style="color:#94a3b8;font-size:13px;">Sem {{ course.semester }}</td>
           <td>
             <div style="display:flex;align-items:center;gap:6px;">
               <i class="bi bi-collection" style="color:#7c5cbf;font-size:13px;"></i>

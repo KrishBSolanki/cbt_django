@@ -67,12 +67,12 @@ WSGI_APPLICATION = 'exam_paper_system.wsgi.application'
 DATABASES = {
     # Primary Django database
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('DJ_DB_NAME', 'exam_paper_db'),
-        'USER': os.environ.get('DJ_DB_USER', 'root'),
-        'PASSWORD': os.environ.get('DJ_DB_PASSWORD', 'root'),
-        'HOST': os.environ.get('DJ_DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DJ_DB_PORT', '3306'),
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'exam_paper_system',
+            'USER': 'root',
+            'PASSWORD': 'Uganda@18',
+            'HOST': '127.0.0.1',
+            'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",

@@ -72,9 +72,9 @@
           <td style="color:#64748b;font-weight:600;text-align:center;">{{ pq.question_number }}</td>
           <td>
             <div style="color:#e2e8f0;font-size:13px;line-height:1.6;">{{ pq.question.question_text }}</div>
-            {% if pq.question.answers.all %}
+            {% if pq.question.answer_data %}
             <div style="margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-              {% for ans in pq.question.answers.all %}
+              {% for ans in pq.question.answer_data %}
               <div style="font-size:12px;display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;
                 {% if ans.is_correct %}background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#22c55e;
                 {% else %}background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);color:#64748b;{% endif %}">

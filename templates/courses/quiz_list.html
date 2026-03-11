@@ -18,7 +18,7 @@
         <div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#e2e8f0;">{{ course.course_name }}</div>
         <div style="font-size:13px;color:#94a3b8;margin-top:2px;">
           <span style="font-family:'DM Mono',monospace;color:#4f8ef7;">{{ course.course_code }}</span>
-          &nbsp;·&nbsp; {{ course.get_department_display }} &nbsp;·&nbsp; Semester {{ course.semester }}
+          &nbsp;·&nbsp; {{ course.department }}
         </div>
       </div>
     </div>
@@ -41,9 +41,8 @@
         <tr>
           <th>#</th>
           <th>Quiz Name</th>
-          <th>Total Marks</th>
           <th>Questions</th>
-          <th>Time Limit</th>
+          <th>Duration</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -57,14 +56,13 @@
             <div style="font-size:11px;color:#64748b;margin-top:2px;">{{ quiz.description|truncatechars:80|striptags }}</div>
             {% endif %}
           </td>
-          <td style="color:#e2e8f0;font-weight:600;">{{ quiz.total_marks }}</td>
           <td>
             <span style="background:rgba(245,158,11,0.1);color:#f59e0b;border:1px solid rgba(245,158,11,0.2);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;">
-              {{ quiz.q_count }} Q
+              {{ quiz.total_questions }} Q
             </span>
           </td>
           <td style="color:#94a3b8;font-size:13px;">
-            {% if quiz.time_limit %}{{ quiz.time_limit }} min{% else %}—{% endif %}
+            {% if quiz.duration_minutes %}{{ quiz.duration_minutes }} min{% else %}—{% endif %}
           </td>
           <td>
             <a href="{% url 'generate_paper' %}?course={{ course.id }}&quiz={{ quiz.id }}" class="btn-primary-custom" style="padding:7px 14px;font-size:12px;">

@@ -67,7 +67,14 @@ class CourseListView(View):
         if department:
             courses = courses.filter(department=department)
 
-        departments = Course.DEPARTMENT_CHOICES
+        departments = (
+            Course.objects.exclude(department__isnull=True)
+            .exclude(department__exact='')
+            .values_list('department', flat=True)
+            .distinct()
+            .order_by('department')
+        )
+        departments = [(d, d) for d in departments]
 
         context = {
             'courses': courses,
