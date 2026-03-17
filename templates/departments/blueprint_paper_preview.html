@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Paper Preview — {{ group_id }}{% endblock %}
+{% block page_title %}Blueprint Papers — {{ group_id }}{% endblock %}
+{% block topbar_actions %}
+{% for p in papers %}<a href="{% url 'export_paper_txt' p.id %}" class="btn btn-g btn-sm"><i class="bi bi-download"></i>Set {{ p.set_name }}</a>{% endfor %}
+{% endblock %}
+{% block content %}
+<div class="fu">
+  <!-- Success header -->
+  <div style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(14,165,233,.05));border:1px solid rgba(34,197,94,.18);border-radius:13px;padding:18px 22px;margin-bottom:20px;display:flex;align-items:center;gap:16px">
+    <div style="width:48px;height:48px;background:rgba(34,197,94,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">✅</div>
+    <div style="flex:1">
+      <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#e2e8f0;margin-bottom:3px">3 Blueprint Paper Sets Generated!</div>
+      <div style="font-size:12px;color:#94a3b8">
+        <span style="color:#0ea5e9;font-weight:600">{{ blueprint.department.name }}</span> ›
+        <span style="color:#a78bfa;font-weight:600">{{ blueprint.category.name }}</span> ›
+        <span style="color:#f59e0b;font-weight:600">{{ blueprint.course.course_code }}</span> ›
+        <span style="color:#22c55e;font-weight:600">{{ blueprint.subject.name }}</span>
+        &nbsp;·&nbsp; <code>{{ group_id }}</code>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      <div style="text-align:center;padding:9px 14px;background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.15);border-radius:9px"><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#4f8ef7">{{ blueprint.mcq_count }}</div><div style="font-size:9px;color:#64748b;text-transform:uppercase">MCQ</div></div>
+      <div style="text-align:center;padding:9px 14px;background:rgba(124,92,191,.07);border:1px solid rgba(124,92,191,.15);border-radius:9px"><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#a78bfa">{{ blueprint.descriptive_count }}</div><div style="font-size:9px;color:#64748b;text-transform:uppercase">Desc</div></div>
+      <div style="text-align:center;padding:9px 14px;background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.15);border-radius:9px"><div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#22c55e">{{ blueprint.total_marks }}</div><div style="font-size:9px;color:#64748b;text-transform:uppercase">Total Marks</div></div>
+    </div>
+  </div>
+
+  <!-- Set tabs -->
+  <div x-data="{active:'A'}">
+    <div style="display:flex;gap:7px;margin-bottom:16px">
+      {% for paper in papers %}
+      <button @click="active='{{ paper.set_name }}'" :class="active==='{{ paper.set_name }}'?'btn btn-d':'btn btn-g'" style="padding:9px 20px;font-size:13px">
+        <i class="bi bi-file-text"></i> Set {{ paper.set_name }} <span style="opacity:.6;font-size:11px">{{ paper.total_questions }}Q</span>
+      </button>
+      {% endfor %}
+    </div>
+
+    {% for paper in papers %}
+    <div x-show="active==='{{ paper.set_name }}'" x-transition>
+      <!-- Stats row -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin-bottom:16px">
+        <div class="card" style="padding:12px 14px"><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Paper ID</div><div style="font-family:'DM Mono',monospace;font-size:10.5px;font-weight:600;color:#0ea5e9">{{ paper.paper_id }}</div></div>
+        <div class="card" style="padding:12px 14px"><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">MCQ</div><div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#4f8ef7">{{ paper.easy_count }}</div></div>
+        <div class="card" style="padding:12px 14px"><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Descriptive</div><div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#a78bfa">{{ paper.medium_count }}</div></div>
+        <div class="card" style="padding:12px 14px"><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Total Marks</div><div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#22c55e">{{ paper.total_marks }}</div></div>
+        <div class="card" style="padding:12px 14px"><div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">Duration</div><div style="font-family:'Fraunces',serif;font-size:18px;font-weight:700;color:#e2e8f0">{{ paper.duration_minutes }}m</div></div>
+      </div>
+
+      <!-- Paper body -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-family:'Fraunces',serif;font-size:14px;font-weight:700">Set {{ paper.set_name }} — Question Paper</div>
+            <div style="font-size:11px;color:#64748b;margin-top:1px">{{ blueprint.department.name }} | {{ blueprint.category.name }} | {{ blueprint.subject.name }}</div>
+          </div>
+          <a href="{% url 'export_paper_txt' paper.id %}" class="btn btn-g btn-sm"><i class="bi bi-download"></i>Export</a>
+        </div>
+
+        <!-- Section A -->
+        <div class="sec-hdr sec-mcq">📝 SECTION A — OBJECTIVE (MCQ) · {{ blueprint.mcq_count }} Questions × {{ blueprint.mcq_marks }} Mark = {{ blueprint.mcq_total_marks }} Marks</div>
+        <table class="tbl">
+          <thead><tr><th width="36">No.</th><th>Question</th><th width="90">Type</th><th width="60" style="text-align:right">Marks</th></tr></thead>
+          <tbody>
+            {% for pq in paper.paper_questions.all %}
+            {% if pq.question.is_mcq %}
+            <tr>
+              <td style="color:#64748b;font-weight:600;text-align:center">{{ pq.question_number }}</td>
+              <td>
+                <div style="color:#e2e8f0;font-size:12.5px;line-height:1.55">{{ pq.question.question_text|truncatechars:220 }}</div>
+                {% if pq.question.answers.all %}
+                <div style="margin-top:7px;display:grid;grid-template-columns:1fr 1fr;gap:3px">
+                  {% for a in pq.question.answers.all %}
+                  <div style="font-size:11px;display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;{% if a.is_correct %}background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.15);color:#22c55e{% else %}background:rgba(255,255,255,.02);color:#64748b{% endif %}">
+                    <span style="font-weight:700;font-size:10px;flex-shrink:0">{% cycle 'A' 'B' 'C' 'D' %}.</span>{{ a.answer_text|truncatechars:50 }}
+                    {% if a.is_correct %}<i class="bi bi-check-circle-fill" style="margin-left:auto;font-size:9px"></i>{% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </td>
+              <td><span class="pill p-b">MCQ</span></td>
+              <td style="text-align:right;font-weight:700;color:#4f8ef7;font-size:12.5px">{{ pq.marks }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+
+        <!-- Section B -->
+        <div class="sec-hdr sec-desc">✍️ SECTION B — DESCRIPTIVE · {{ blueprint.descriptive_count }} Questions × {{ blueprint.descriptive_marks }} Marks = {{ blueprint.descriptive_total_marks }} Marks</div>
+        <table class="tbl">
+          <tbody>
+            {% for pq in paper.paper_questions.all %}
+            {% if pq.question.is_descriptive %}
+            <tr>
+              <td width="36" style="color:#64748b;font-weight:600;text-align:center">{{ pq.question_number }}</td>
+              <td>
+                <div style="color:#e2e8f0;font-size:12.5px;line-height:1.6">{{ pq.question.question_text }}</div>
+                <div style="margin-top:7px;background:rgba(124,92,191,.04);border:1px solid rgba(124,92,191,.1);border-radius:7px;padding:9px 13px"><div style="font-size:10px;color:#a78bfa;font-weight:600;margin-bottom:4px">Answer Space</div><div style="height:44px"></div></div>
+              </td>
+              <td width="90"><span class="pill p-v">Descriptive</span></td>
+              <td width="60" style="text-align:right;font-weight:700;color:#a78bfa;font-size:12.5px">{{ pq.marks }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

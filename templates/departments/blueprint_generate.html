@@ -1,0 +1,576 @@
+{% extends 'base.html' %}
+{% block title %}Department Blueprint{% endblock %}
+{% block page_title %}Department Blueprint Paper Generator{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="blueprintWizard()" x-init="init()">
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+
+    <!-- Main wizard -->
+    <div>
+      <form method="post" id="bpForm">
+        {% csrf_token %}
+        <input type="hidden" name="dept_id" x-model="deptId">
+        <input type="hidden" name="cat_id" x-model="catId">
+        <input type="hidden" name="course_id" x-model="courseId">
+        <input type="hidden" name="subject_id" x-model="subjectId">
+        <input type="hidden" name="blueprint_id" :value="bp.blueprint_id || ''">
+        <input type="hidden" name="paper_type" x-model="paperType">
+
+        <!-- STEP 1: Department -->
+        <div class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#4f8ef7,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">1</div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Department</div>
+            <span x-show="deptId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+            {% for dept in departments %}
+            <button type="button" @click="selectDept({{ dept.id }}, '{{ dept.name }}', '{{ dept.code }}')"
+              :class="deptId == {{ dept.id }} ? 'ring-2 ring-blue-500 bg-blue-500/10' : 'hover:bg-white/5'"
+              style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;text-align:left;cursor:pointer;transition:all 0.2s;">
+              <div style="font-size:11px;font-weight:700;color:#4f8ef7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">{{ dept.code }}</div>
+              <div style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">{{ dept.name }}</div>
+              <div style="font-size:11px;color:#64748b;">{{ dept.blueprint_count }} blueprints</div>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- STEP 2: Category (shown after dept selected) -->
+        <div x-show="step >= 2" x-transition class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#7c5cbf,#a855f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">2</div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Exam Category</div>
+            <span x-show="catId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+            <span x-show="loadCat" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
+          </div>
+
+          <div x-show="!cats.length && !loadCat" style="font-size:13px;color:#64748b;text-align:center;padding:20px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:10px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;margin-right:8px;"></i>
+            No categories found for this department.
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;">
+            <template x-for="c in cats" :key="c.id">
+              <button type="button" @click="selectCat(c.id, c.name)"
+                :class="catId == c.id ? 'bg-purple-500/15 border-purple-500/40 text-purple-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/8 hover:border-white/15'"
+                style="border:2px solid;border-radius:50px;padding:14px 28px;cursor:pointer;transition:all 0.25s ease;font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px;"
+                x-text="c.name">
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- STEP 3: Course (shown after category selected) -->
+        <div x-show="step >= 3" x-transition class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">3</div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Course</div>
+            <span x-show="courseId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+            <span x-show="loadCourse" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
+          </div>
+
+          <div x-show="!courses.length && !loadCourse" style="font-size:13px;color:#64748b;text-align:center;padding:20px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:10px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;margin-right:8px;"></i>
+            No courses found for this category.
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+            <template x-for="c in courses" :key="c.id">
+              <button type="button" @click="selectCourse(c.id, c.code, c.name)"
+                :class="courseId == c.id ? 'ring-2 ring-amber-500 bg-amber-500/10' : 'hover:bg-white/5'"
+                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:14px;text-align:left;cursor:pointer;transition:all 0.2s;">
+                <div style="font-size:11px;font-weight:700;color:#f59e0b;letter-spacing:0.05em;margin-bottom:4px;" x-text="c.code"></div>
+                <div style="font-size:13px;font-weight:600;color:#e2e8f0;" x-text="c.name"></div>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- STEP 4: Type of Paper (Engineering only) -->
+        <div x-show="step >= 4 && isEngg" x-transition class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">4</div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Type of Paper</div>
+            <span x-show="paperType" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;">
+            <template x-for="t in paperTypes" :key="t">
+              <button type="button" @click="selectPaperType(t)"
+                :class="paperType == t ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-200' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/8 hover:border-white/15'"
+                style="border:2px solid;border-radius:50px;padding:14px 28px;cursor:pointer;transition:all 0.25s ease;font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px;"
+                x-text="t">
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- STEP 5: Subject (shown after paper type selected OR course selected for non-Engineering) -->
+        <div x-show="(step >= 5 && isEngg) || (step >= 4 && !isEngg)" x-transition class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;" x-text="isEngg ? '5' : '4'"></div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Subject</div>
+            <span x-show="subjectId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+            <span x-show="loadSubject" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
+          </div>
+
+          <div x-show="!subjects.length && !loadSubject" style="font-size:13px;color:#64748b;text-align:center;padding:20px;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:10px;">
+            <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;margin-right:8px;"></i>
+            No subjects found for this course.
+          </div>
+
+          <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-start;">
+            <template x-for="s in subjects" :key="s.id">
+              <button type="button" @click="selectSubject(s.id, s.name)"
+                :class="subjectId == s.id ? 'bg-green-500/15 border-green-500/40 text-green-300' : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/8 hover:border-white/15'"
+                style="border:2px solid;border-radius:50px;padding:14px 28px;cursor:pointer;transition:all 0.25s ease;font-weight:600;font-size:14px;display:flex;align-items:center;gap:10px;"
+                x-text="s.name">
+              </button>
+            </template>
+          </div>
+        </div>
+
+        {% if trms_exam_data %}
+        <div class="card-glass" style="margin-bottom:16px;">
+          <div style="font-weight:600;margin-bottom:12px;">
+            TRMS Exam Design Data
+          </div>
+
+          <table class="table-glass">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Exam ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in trms_exam_data %}
+              <tr>
+                <td>{{ row.subject_name }}</td>
+                <td>
+                  {% if row.subject_type == 2 or row.subject_type == '2' %}
+                    <span class="pill" style="background:rgba(79,142,247,0.1);color:#93c5fd;border:1px solid rgba(79,142,247,0.2);">MCQ</span>
+                  {% else %}
+                    <span class="pill" style="background:rgba(168,85,247,0.08);color:#c4b5fd;border:1px solid rgba(168,85,247,0.18);">Descriptive</span>
+                  {% endif %}
+                </td>
+                <td style="font-family:'DM Mono',monospace;">{{ row.exam_id }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <!-- STEP 6: Blueprint & Generate (shown after subject selected) -->
+        <div x-show="(step >= 6 && isEngg) || (step >= 5 && !isEngg)" x-transition>
+          <div x-show="bp.found" class="card-glass" style="margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+              <div style="width:28px;height:28px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">5</div>
+              <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Exam Blueprint</div>
+              <span class="pill" style="margin-left:auto;background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2);font-size:10px;padding:3px 10px;border-radius:20px;">
+                <i class="bi bi-check-lg" style="margin-right:4px;"></i>AUTO-CONFIGURED
+              </span>
+            </div>
+
+            <!-- Blueprint Sections -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+              <!-- MCQ Section -->
+              <div style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:12px;padding:20px;">
+                <div style="font-size:11px;font-weight:700;color:#4f8ef7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">📝 Section A — MCQ</div>
+                <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
+                  <span style="font-family:'Fraunces',serif;font-size:36px;font-weight:700;color:#4f8ef7;" x-text="bp.mcq_count">40</span>
+                  <span style="font-size:13px;color:#64748b;">questions</span>
+                </div>
+                <div style="font-size:13px;color:#94a3b8;margin-bottom:12px;">× <strong style="color:#e2e8f0;" x-text="bp.mcq_marks">1</strong> mark each</div>
+                <div style="padding-top:12px;border-top:1px solid rgba(79,142,247,0.15);display:flex;justify-content:space-between;font-size:12px;">
+                  <span style="color:#64748b;">Section Total</span>
+                  <span style="color:#4f8ef7;font-weight:700;" x-text="(bp.mcq_count * bp.mcq_marks) + ' marks'">40 marks</span>
+                </div>
+              </div>
+
+              <!-- Descriptive Section -->
+              <div style="background:rgba(124,92,191,0.06);border:1px solid rgba(124,92,191,0.15);border-radius:12px;padding:20px;">
+                <div style="font-size:11px;font-weight:700;color:#a78bfa;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">✍️ Section B — Descriptive</div>
+                <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:6px;">
+                  <span style="font-family:'Fraunces',serif;font-size:36px;font-weight:700;color:#a78bfa;" x-text="bp.descriptive_count">6</span>
+                  <span style="font-size:13px;color:#64748b;">questions</span>
+                </div>
+                <div style="font-size:13px;color:#94a3b8;margin-bottom:12px;">× <strong style="color:#e2e8f0;" x-text="bp.descriptive_marks">10</strong> marks each</div>
+                <div style="padding-top:12px;border-top:1px solid rgba(124,92,191,0.15);display:flex;justify-content:space-between;font-size:12px;">
+                  <span style="color:#64748b;">Section Total</span>
+                  <span style="color:#a78bfa;font-weight:700;" x-text="(bp.descriptive_count * bp.descriptive_marks) + ' marks'">60 marks</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Total Summary -->
+            <div style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.15);border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+              <div style="font-size:13px;color:#94a3b8;">Total: <strong style="color:#e2e8f0;" x-text="bp.total_questions">46</strong> Questions</div>
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-family:'Fraunces',serif;font-size:32px;font-weight:700;color:#22c55e;" x-text="bp.total_marks">100</span>
+                <span style="font-size:14px;color:#64748b;">Total Marks</span>
+              </div>
+            </div>
+
+            <!-- Question Availability -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+              <div :style="bp.avail && bp.avail.mcq_ok ? 'background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.15)' : 'background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.15)'" style="border:1px solid;border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px;">
+                <i :class="bp.avail && bp.avail.mcq_ok ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'" :style="bp.avail && bp.avail.mcq_ok ? 'color:#22c55e' : 'color:#ef4444'" style="font-size:18px;"></i>
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:2px;" :style="bp.avail && bp.avail.mcq_ok ? 'color:#22c55e' : 'color:#ef4444'">MCQ Questions</div>
+                  <div style="font-size:11px;color:#64748b;" x-text="bp.avail ? (bp.avail.mcq_available + ' available / ' + bp.avail.mcq_needed + ' needed') : '...'">Loading...</div>
+                </div>
+              </div>
+              <div :style="bp.avail && bp.avail.desc_ok ? 'background:rgba(34,197,94,0.06);border-color:rgba(34,197,94,0.15)' : 'background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.15)'" style="border:1px solid;border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px;">
+                <i :class="bp.avail && bp.avail.desc_ok ? 'bi bi-check-circle-fill' : 'bi bi-exclamation-circle-fill'" :style="bp.avail && bp.avail.desc_ok ? 'color:#22c55e' : 'color:#ef4444'" style="font-size:18px;"></i>
+                <div>
+                  <div style="font-size:11px;font-weight:700;margin-bottom:2px;" :style="bp.avail && bp.avail.desc_ok ? 'color:#22c55e' : 'color:#ef4444'">Descriptive Questions</div>
+                  <div style="font-size:11px;color:#64748b;" x-text="bp.avail ? (bp.avail.desc_available + ' available / ' + bp.avail.desc_needed + ' needed') : '...'">Loading...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Generate Button -->
+            <button type="submit" form="bpForm" 
+              :disabled="!bp.avail || !bp.avail.ok"
+              class="btn-primary-custom"
+              style="width:100%;justify-content:center;padding:16px;font-size:15px;"
+              :style="(!bp.avail || !bp.avail.ok) ? 'opacity:0.5;cursor:not-allowed;' : ''">
+              <i class="bi bi-diagram-3-fill"></i>
+              Generate 3 Paper Sets (A / B / C)
+            </button>
+
+            <div x-show="bp.avail && !bp.avail.ok" style="margin-top:12px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:12px;font-size:13px;color:#fca5a5;display:flex;align-items:center;gap:8px;">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              Not enough questions. Add more via the Question Bank or Admin.
+            </div>
+          </div>
+
+          <!-- No Blueprint Found -->
+          <div x-show="!bp.found && !loadBp" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);border-radius:12px;padding:20px;text-align:center;">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:32px;color:#ef4444;margin-bottom:12px;"></i>
+            <div style="font-size:15px;font-weight:600;color:#fca5a5;margin-bottom:8px;">No blueprint found</div>
+            <div style="font-size:13px;color:#94a3b8;margin-bottom:16px;">No blueprint exists for this Department × Category × Course × Subject combination.</div>
+            <a :href="`/departments/create/?dept=${deptId}&cat=${catId}&course=${courseId}&subject=${subjectId}`" 
+               class="btn-primary-custom" 
+               style="display:inline-flex;"
+               x-show="deptId && catId && courseId && subjectId">
+              <i class="bi bi-plus-lg"></i> Create Blueprint
+            </a>
+            <a href="{% url 'blueprint_create' %}" 
+               class="btn-primary-custom" 
+               style="display:inline-flex;"
+               x-show="!deptId || !catId || !courseId || !subjectId">
+              <i class="bi bi-plus-lg"></i> Create New Blueprint
+            </a>
+          </div>
+
+          <div x-show="loadBp" style="text-align:center;padding:40px;">
+            <i class="bi bi-arrow-clockwise" style="font-size:24px;color:#4f8ef7;animation:spin 1s linear infinite;display:inline-block;"></i>
+            <div style="font-size:13px;color:#64748b;margin-top:12px;">Loading blueprint...</div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right panel -->
+    <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:16px;">
+      
+      <!-- Selection Summary -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
+          Your Selection
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
+            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-building" style="color:#4f8ef7;"></i> Department
+            </span>
+            <span style="color:#e2e8f0;font-weight:600;" x-text="deptName || '—'">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
+            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-layers" style="color:#a78bfa;"></i> Category
+            </span>
+            <span style="color:#e2e8f0;font-weight:600;" x-text="catName || '—'">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
+            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-book" style="color:#f59e0b;"></i> Course
+            </span>
+            <span style="color:#e2e8f0;font-weight:600;" x-text="courseCode || '—'">—</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
+            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
+              <i class="bi bi-journal-text" style="color:#22c55e;"></i> Subject
+            </span>
+            <span style="color:#e2e8f0;font-weight:600;" x-text="subjectName || '—'">—</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paper Preview -->
+      <div class="card-glass" x-show="bp.found" x-transition>
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
+          Paper Preview
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:16px;">
+          <div style="flex:1;background:linear-gradient(135deg,rgba(79,142,247,0.1),rgba(124,92,191,0.1));border:1px solid rgba(79,142,247,0.2);border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#4f8ef7;">A</div>
+            <div style="font-size:10px;color:#64748b;">Set A</div>
+          </div>
+          <div style="flex:1;background:linear-gradient(135deg,rgba(124,92,191,0.1),rgba(168,85,247,0.1));border:1px solid rgba(124,92,191,0.2);border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#a78bfa;">B</div>
+            <div style="font-size:10px;color:#64748b;">Set B</div>
+          </div>
+          <div style="flex:1;background:linear-gradient(135deg,rgba(34,197,94,0.1),rgba(22,163,74,0.1));border:1px solid rgba(34,197,94,0.2);border-radius:10px;padding:14px;text-align:center;">
+            <div style="font-family:'Fraunces',serif;font-size:24px;font-weight:700;color:#22c55e;">C</div>
+            <div style="font-size:10px;color:#64748b;">Set C</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 10px;background:rgba(79,142,247,0.05);border-radius:8px;">
+            <span style="color:#64748b;">📝 MCQ</span>
+            <span style="color:#4f8ef7;font-weight:600;" x-text="bp.mcq_count + ' × ' + bp.mcq_marks + 'm'">40 × 1m</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 10px;background:rgba(124,92,191,0.05);border-radius:8px;">
+            <span style="color:#64748b;">✍️ Descriptive</span>
+            <span style="color:#a78bfa;font-weight:600;" x-text="bp.descriptive_count + ' × ' + bp.descriptive_marks + 'm'">6 × 10m</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px;padding:8px 10px;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.1);border-radius:8px;">
+            <span style="color:#64748b;">Total Marks</span>
+            <span style="color:#22c55e;font-weight:700;" x-text="bp.total_marks + 'M'">100M</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- How It Works -->
+      <div style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2);border-radius:12px;padding:16px;">
+        <div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+          <i class="bi bi-lightbulb-fill"></i> How Blueprint Works
+        </div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
+          The blueprint auto-configures:<br>
+          • MCQ count & marks<br>
+          • Descriptive count & marks<br>
+          • Total paper marks<br>
+          No manual sliders needed!
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
+          <i class="bi bi-bolt" style="color:#f59e0b;margin-right:8px;"></i>Quick Actions
+        </div>
+        <a href="{% url 'blueprint_create' %}" class="btn-primary-custom" style="width:100%;justify-content:center;margin-bottom:10px;">
+          <i class="bi bi-plus-lg"></i> Create New Blueprint
+        </a>
+        <a href="{% url 'blueprint_history' %}" class="btn-ghost" style="width:100%;justify-content:center;">
+          <i class="bi bi-clock-history"></i> View History
+        </a>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+<script>
+function blueprintWizard() {
+  return {
+    step: 1,
+    deptId: '{{ sel_dept|default:"" }}',
+    deptName: '',
+    deptCode: '',
+    catId: '{{ sel_cat|default:"" }}',
+    catName: '',
+    courseId: '{{ sel_course|default:"" }}',
+    courseCode: '',
+    courseName: '',
+    subjectId: '{{ sel_subject|default:"" }}',
+    subjectName: '',
+    cats: [],
+    courses: [],
+    subjects: [],
+    loadCat: false,
+    loadCourse: false,
+    loadSubject: false,
+    loadBp: false,
+    bp: { found: false },
+    bpId: '{{ sel_bp_id|default:"" }}',
+    paperType: '{{ sel_paper_type|default:"" }}',
+    enggDeptId: '{{ engg_dept_id|default:"" }}',
+    paperTypes: ['First Visit', 'Second Visit', 'Third Visit', 'Only One Visit'],
+
+    get isEngg() {
+      return this.enggDeptId && this.deptId && (this.deptId.toString() === this.enggDeptId.toString());
+    },
+
+    async init() {
+      if (this.deptId) {
+        this.step = 2;
+        // Find department name from the rendered list
+        const deptBtn = document.querySelector(`button[onclick*="selectDept(${this.deptId},"]`);
+        if (deptBtn) {
+          const deptCode = deptBtn.querySelector('.text-\[11px\]')?.textContent || '';
+          const deptName = deptBtn.querySelector('.text-\[14px\]')?.textContent || '';
+          this.deptName = deptName;
+          this.deptCode = deptCode;
+        }
+        await this.fetchCats();
+        // Find category name
+        if (this.catId) {
+          const cat = this.cats.find(c => c.id == this.catId);
+          if (cat) this.catName = cat.name;
+        }
+      }
+      if (this.catId) {
+        this.step = 3;
+        await this.fetchCourses();
+        // Find course name
+        if (this.courseId) {
+          const course = this.courses.find(c => c.id == this.courseId);
+          if (course) {
+            this.courseCode = course.code;
+            this.courseName = course.name;
+          }
+        }
+      }
+      if (this.courseId) {
+        this.step = 4;
+        await this.fetchSubjects();
+        // Find subject name
+        if (this.subjectId) {
+          const subject = this.subjects.find(s => s.id == this.subjectId);
+          if (subject) this.subjectName = subject.name;
+        }
+      }
+      if (this.subjectId) {
+        this.step = this.isEngg ? 6 : 5;
+        await this.fetchBp();
+      }
+    },
+
+    async selectDept(id, name, code) {
+      this.deptId = id;
+      this.deptName = name;
+      this.deptCode = code;
+      this.resetAfterDept();
+      this.step = 2;
+      await this.fetchCats();
+    },
+
+    async selectCat(id, name) {
+      this.catId = id;
+      this.catName = name;
+      this.resetAfterCat();
+      this.step = 3;
+      await this.fetchCourses();
+    },
+
+    async selectCourse(id, code, name) {
+      this.courseId = id;
+      this.courseCode = code;
+      this.courseName = name;
+      this.resetAfterCourse();
+      if (this.isEngg) {
+        this.step = 4;
+      } else {
+        this.step = 4;
+        await this.fetchSubjects();
+      }
+    },
+
+    async selectPaperType(t) {
+      this.paperType = t;
+      this.step = 5;
+      await this.fetchSubjects();
+    },
+
+    async selectSubject(id, name) {
+      this.subjectId = id;
+      this.subjectName = name;
+      this.step = 5;
+      await this.fetchBp();
+    },
+
+    resetAfterDept() {
+      this.catId = '';
+      this.catName = '';
+      this.cats = [];
+      this.resetAfterCat();
+    },
+
+    resetAfterCat() {
+      this.courseId = '';
+      this.courseCode = '';
+      this.courseName = '';
+      this.courses = [];
+      this.resetAfterCourse();
+    },
+
+    resetAfterCourse() {
+      this.subjectId = '';
+      this.subjectName = '';
+      this.subjects = [];
+      this.bp = { found: false };
+      this.paperType = '';
+    },
+
+    async fetchCats() {
+      this.loadCat = true;
+      try {
+        const r = await fetch(`/departments/api/categories/${this.deptId}/`);
+        const d = await r.json();
+        this.cats = d.categories;
+      } catch(e) { console.error(e); }
+      this.loadCat = false;
+    },
+
+    async fetchCourses() {
+      this.loadCourse = true;
+      try {
+        const r = await fetch(`/departments/api/courses/${this.deptId}/${this.catId}/`);
+        const d = await r.json();
+        this.courses = d.courses;
+      } catch(e) { console.error(e); }
+      this.loadCourse = false;
+    },
+
+    async fetchSubjects() {
+      this.loadSubject = true;
+      try {
+        const r = await fetch(`/departments/api/subjects/${this.deptId}/${this.catId}/${this.courseId}/`);
+        const d = await r.json();
+        this.subjects = d.subjects;
+      } catch(e) { console.error(e); }
+      this.loadSubject = false;
+    },
+
+    async fetchBp() {
+      this.loadBp = true;
+      this.bp = { found: false };
+      try {
+        const params = new URLSearchParams();
+        if (this.bpId) params.set('bp_id', this.bpId);
+        if (this.paperType) params.set('paper_type', this.paperType);
+        const qs = params.toString() ? `?${params.toString()}` : '';
+        const r = await fetch(`/departments/api/blueprint/${this.deptId}/${this.catId}/${this.courseId}/${this.subjectId}/${qs}`.replace('/?', '?'));
+        this.bp = await r.json();
+      } catch(e) { console.error(e); }
+      this.loadBp = false;
+    }
+  }
+}
+</script>
+{% endblock %}

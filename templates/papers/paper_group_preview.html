@@ -33,6 +33,26 @@
   <!-- Set tabs -->
   <div x-data="{ activeSet: 'A' }">
 
+    <!-- Push to Moodle quiz -->
+    <div class="card-glass" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;">Add Questions to Moodle Quiz</div>
+          <div style="font-size:12px;color:#64748b;margin-top:3px;">Appends questions from the selected set and skips duplicates already in the quiz.</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px;">
+        <select id="moodleQuizSelect" class="form-control-dark" style="min-width:320px;">
+          <option value="">— Select Moodle Quiz —</option>
+          {% for q in quizzes %}
+          <option value="{{ q.id }}">{{ q.quiz_name }}</option>
+          {% endfor %}
+        </select>
+        <div style="font-size:12px;color:#94a3b8;">Target quiz: <span x-text="activeSet ? ('Set ' + activeSet) : ''"></span></div>
+      </div>
+    </div>
+
     <!-- Tab buttons -->
     <div style="display:flex;gap:8px;margin-bottom:20px;">
       {% for paper in papers %}
@@ -80,9 +100,18 @@
           <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">
             Question List — Set {{ paper.set_name }}
           </div>
-          <a href="{% url 'export_paper_txt' paper.id %}" class="btn-ghost" style="padding:7px 14px;font-size:12px;">
-            <i class="bi bi-download"></i> Export TXT
-          </a>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <form method="post" action="{% url 'push_paper_to_moodle_quiz' paper.id %}" onsubmit="var s=document.getElementById('moodleQuizSelect'); if(!s || !s.value){ alert('Please select a Moodle quiz first.'); return false; } this.querySelector('input[name=quiz_id]').value=s.value; return true;">
+              {% csrf_token %}
+              <input type="hidden" name="quiz_id" value="">
+              <button type="submit" class="btn-ghost" style="padding:7px 14px;font-size:12px;border-color:rgba(34,197,94,0.25);color:#86efac;">
+                <i class="bi bi-plus-circle"></i> Add to Moodle Quiz
+              </button>
+            </form>
+            <a href="{% url 'export_paper_txt' paper.id %}" class="btn-ghost" style="padding:7px 14px;font-size:12px;">
+              <i class="bi bi-download"></i> Export TXT
+            </a>
+          </div>
         </div>
 
         <table class="table-glass">
@@ -104,13 +133,22 @@
                 {% if pq.question.answer_data %}
                 <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px;">
                   {% for ans in pq.question.answer_data %}
-                  <div style="font-size:12px;display:flex;align-items:center;gap:6px;{% if ans.is_correct %}color:#22c55e;{% else %}color:#64748b;{% endif %}">
-                    <span style="width:18px;height:18px;background:{% if ans.is_correct %}rgba(34,197,94,0.15){% else %}rgba(255,255,255,0.04){% endif %};border:1px solid {% if ans.is_correct %}rgba(34,197,94,0.3){% else %}rgba(255,255,255,0.08){% endif %};border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">
+                  {% if ans.is_correct %}
+                  <div style="font-size:12px;display:flex;align-items:center;gap:6px;color:#22c55e;">
+                    <span style="width:18px;height:18px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.3);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">
                       {{ forloop.parentloop.counter0|add:0 }}{% cycle 'A' 'B' 'C' 'D' 'E' %}
                     </span>
                     {{ ans.answer_text|truncatechars:80 }}
-                    {% if ans.is_correct %}<i class="bi bi-check-circle-fill" style="font-size:11px;"></i>{% endif %}
+                    <i class="bi bi-check-circle-fill" style="font-size:11px;"></i>
                   </div>
+                  {% else %}
+                  <div style="font-size:12px;display:flex;align-items:center;gap:6px;color:#64748b;">
+                    <span style="width:18px;height:18px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">
+                      {{ forloop.parentloop.counter0|add:0 }}{% cycle 'A' 'B' 'C' 'D' 'E' %}
+                    </span>
+                    {{ ans.answer_text|truncatechars:80 }}
+                  </div>
+                  {% endif %}
                   {% endfor %}
                 </div>
                 {% endif %}

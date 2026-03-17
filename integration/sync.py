@@ -426,6 +426,298 @@ def get_moodle_connection():
 
 
 # ---------------------------------------------------
+# MOODLE QUIZ DB HELPERS (raw mdl_* operations)
+# ---------------------------------------------------
+
+def get_quiz_grade_item_id(cursor, quizid):
+    cursor.execute(
+        """
+        SELECT gi.id
+        FROM mdl_grade_items gi
+        WHERE gi.itemmodule = 'quiz'
+          AND gi.iteminstance = %s
+        ORDER BY gi.id DESC
+        LIMIT 1
+        """,
+        [int(quizid)],
+    )
+    row = cursor.fetchone()
+    return int(row[0]) if row and row[0] is not None else None
+
+
+def backfill_slot_grade_item_id(cursor, quizid, grade_item_id):
+    if not grade_item_id:
+        return
+    cursor.execute(
+        """
+        UPDATE mdl_quiz_slots
+           SET quizgradeitemid = %s
+         WHERE quizid = %s
+           AND (quizgradeitemid IS NULL OR quizgradeitemid = 0)
+        """,
+        [int(grade_item_id), int(quizid)],
+    )
+
+
+# def get_using_context_id(cursor, quizid):
+#     cursor.execute(
+#         """
+#         SELECT qr.usingcontextid
+#         FROM mdl_quiz_slots s
+#         JOIN mdl_question_references qr
+#           ON qr.itemid = s.id
+#          AND qr.component = 'mod_quiz'
+#          AND qr.questionarea = 'slot'
+#         WHERE s.quizid = %s
+#         ORDER BY qr.id DESC
+#         LIMIT 1
+#         """,
+#         [int(quizid)],
+#     )
+#     row = cursor.fetchone()
+#     if row and row[0]:
+#         return int(row[0])
+
+#     cursor.execute(
+#         """
+#         SELECT ctx.id
+#         FROM mdl_course_modules cm
+#         JOIN mdl_modules m ON m.id = cm.module
+#         JOIN mdl_context ctx ON ctx.contextlevel = 70 AND ctx.instanceid = cm.id
+#         WHERE m.name = 'quiz' AND cm.instance = %s
+#         ORDER BY ctx.id DESC
+#         LIMIT 1
+#         """,
+#         [int(quizid)],
+#     )
+#     row = cursor.fetchone()
+#     return int(row[0]) if row else None
+def get_using_context_id(cursor, quizid):
+
+    # Try to get context from existing slot reference
+    cursor.execute("""
+        SELECT qr.usingcontextid
+        FROM mdl_quiz_slots s
+        JOIN mdl_question_references qr
+            ON qr.itemid = s.id
+           AND qr.component = 'mod_quiz'
+           AND qr.questionarea = 'slot'
+        WHERE s.quizid = %s
+        LIMIT 1
+    """, [int(quizid)])
+
+    row = cursor.fetchone()
+    if row and row[0]:
+        return int(row[0])
+
+    # Fallback: lookup quiz context directly
+    cursor.execute("""
+        SELECT ctx.id
+        FROM mdl_context ctx
+        JOIN mdl_course_modules cm
+            ON cm.id = ctx.instanceid
+        JOIN mdl_modules m
+            ON m.id = cm.module
+        WHERE m.name = 'quiz'
+          AND cm.instance = %s
+        LIMIT 1
+    """, [int(quizid)])
+
+    row = cursor.fetchone()
+    return int(row[0]) if row else None
+
+def get_questionbankentry_ids(cursor, qids):
+
+    out = {}
+
+    for qid in qids:
+
+        cursor.execute("""
+            SELECT
+                qbe.id,
+                MAX(qv.version)
+            FROM mdl_question_versions qv
+            JOIN mdl_question_bank_entries qbe
+                ON qbe.id = qv.questionbankentryid
+            WHERE qv.questionid = %s
+            GROUP BY qbe.id
+            LIMIT 1
+        """, [int(qid)])
+
+        row = cursor.fetchone()
+
+        if row:
+            qbe_id = int(row[0])
+            version = int(row[1]) if row[1] else 1
+
+            out[int(qid)] = (qbe_id, version)
+
+    return out
+
+
+def backfill_reference_versions(cursor, quizid):
+    cursor.execute(
+        """
+        UPDATE mdl_question_references qr
+        JOIN mdl_quiz_slots s
+          ON s.id = qr.itemid
+         AND s.quizid = %s
+        JOIN mdl_question_versions qv
+          ON qv.questionbankentryid = qr.questionbankentryid
+        SET qr.version = qv.version
+        WHERE qr.component = 'mod_quiz'
+          AND qr.questionarea = 'slot'
+          AND qr.version IS NULL
+          AND qv.status = 'ready'
+          AND qv.version = (
+            SELECT MAX(qv2.version)
+            FROM mdl_question_versions qv2
+            WHERE qv2.questionbankentryid = qr.questionbankentryid
+              AND qv2.status = 'ready'
+          )
+        """,
+        [int(quizid)],
+    )
+
+
+# def ensure_section(cursor, quizid):
+#     cursor.execute(
+#         "SELECT id, firstslot FROM mdl_quiz_sections WHERE quizid = %s ORDER BY id ASC LIMIT 1",
+#         [int(quizid)],
+#     )
+#     row = cursor.fetchone()
+#     if row:
+#         return
+#     cursor.execute(
+#         """
+#         INSERT INTO mdl_quiz_sections (quizid, firstslot, heading, shufflequestions)
+#         VALUES (%s, %s, %s, %s)
+#         """,
+#         [int(quizid), 1, '', 0],
+#     )
+def ensure_section(cursor, quizid):
+
+    cursor.execute(
+        "SELECT id FROM mdl_quiz_sections WHERE quizid=%s LIMIT 1",
+        [int(quizid)]
+    )
+
+    if cursor.fetchone():
+        return
+
+    cursor.execute(
+        """
+        INSERT INTO mdl_quiz_sections
+        (quizid, firstslot, heading, shufflequestions)
+        VALUES (%s, 1, '', 0)
+        """,
+        [int(quizid)]
+    )
+
+
+def update_sumgrades(cursor, quizid):
+    cursor.execute(
+        "SELECT COALESCE(SUM(maxmark), 0) FROM mdl_quiz_slots WHERE quizid = %s",
+        [int(quizid)],
+    )
+    total = cursor.fetchone()[0]
+    cursor.execute(
+        "UPDATE mdl_quiz SET sumgrades = %s WHERE id = %s",
+        [total, int(quizid)],
+    )
+
+
+def fetch_existing_questionbankentry_ids_for_quiz(cursor, quizid):
+    cursor.execute(
+        """
+        SELECT DISTINCT qr.questionbankentryid
+        FROM mdl_quiz_slots s
+        JOIN mdl_question_references qr
+          ON qr.itemid = s.id
+         AND qr.component = 'mod_quiz'
+         AND qr.questionarea = 'slot'
+        WHERE s.quizid = %s
+        """,
+        [int(quizid)],
+    )
+    return {int(r[0]) for r in cursor.fetchall() if r and r[0] is not None}
+
+
+def get_next_slot(cursor, quizid):
+    cursor.execute(
+        "SELECT COALESCE(MAX(slot), 0) FROM mdl_quiz_slots WHERE quizid = %s",
+        [int(quizid)],
+    )
+    return int(cursor.fetchone()[0]) + 1
+
+
+# def insert_quiz_slot(cursor, quizid, slot, maxmark, grade_item_id=None, page=1, displaynumber=None, requireprevious=0):
+#     displaynumber = str(displaynumber if displaynumber is not None else slot)
+#     cursor.execute(
+#         """
+#         INSERT INTO mdl_quiz_slots (slot, quizid, page, displaynumber, requireprevious, maxmark, quizgradeitemid)
+#         VALUES (%s, %s, %s, %s, %s, %s, %s)
+#         """,
+#         [int(slot), int(quizid), int(page), displaynumber, int(requireprevious), maxmark, int(grade_item_id) if grade_item_id else None],
+#     )
+#     return cursor.lastrowid
+def insert_quiz_slot(cursor, quizid, slot, maxmark, grade_item_id=None, page=1, displaynumber=None, requireprevious=0):
+
+    displaynumber = str(displaynumber if displaynumber is not None else slot)
+
+    grade_item = int(grade_item_id) if grade_item_id else None
+
+    cursor.execute(
+        """
+        INSERT INTO mdl_quiz_slots
+        (slot, quizid, page, displaynumber, requireprevious, maxmark, quizgradeitemid)
+        VALUES (%s,%s,%s,%s,%s,%s,%s)
+        """,
+        [slot, quizid, page, displaynumber, requireprevious, maxmark, grade_item]
+    )
+
+    return cursor.lastrowid
+
+
+# def insert_question_reference(cursor, using_context_id, slot_id, questionbankentryid, version):
+#     cursor.execute(
+#         """
+#         INSERT INTO mdl_question_references
+#             (usingcontextid, component, questionarea, itemid, questionbankentryid, version)
+#         VALUES
+#             (%s, %s, %s, %s, %s, %s)
+#         """,
+#         [int(using_context_id), 'mod_quiz', 'slot', int(slot_id), int(questionbankentryid), int(version) if version is not None else None],
+#     )
+def insert_question_reference(cursor, using_context_id, slot_id, questionbankentryid, version):
+
+    # 🔹 Ensure version is never NULL
+    if version is None:
+
+        cursor.execute("""
+            SELECT MAX(version)
+            FROM mdl_question_versions
+            WHERE questionbankentryid = %s
+        """, [int(questionbankentryid)])
+
+        row = cursor.fetchone()
+
+        if row and row[0]:
+            version = int(row[0])
+        else:
+            version = 1   # safe fallback
+
+    cursor.execute(
+        """
+        INSERT INTO mdl_question_references
+        (usingcontextid, component, questionarea, itemid, questionbankentryid, version)
+        VALUES (%s,'mod_quiz','slot',%s,%s,%s)
+        """,
+        [int(using_context_id), int(slot_id), int(questionbankentryid), int(version)]
+    )
+
+
+# ---------------------------------------------------
 # COURSES SYNC
 # ---------------------------------------------------
 
@@ -667,3 +959,69 @@ def sync_questions_from_moodle():
 
     logger.info(f"Question Sync → {stats}")
     return stats
+
+
+def push_questions_to_quiz(quizid, question_ids):
+
+    """
+    Push generated paper questions into Moodle quiz.
+    """
+
+    moodle_conn = get_moodle_connection()
+
+    inserted = 0
+
+    with moodle_conn.cursor() as cursor:
+
+        using_context_id = get_using_context_id(cursor, quizid)
+
+        if not using_context_id:
+            raise Exception("Quiz context not found")
+
+        grade_item_id = get_quiz_grade_item_id(cursor, quizid)
+
+        ensure_section(cursor, quizid)
+
+        qbe_map = get_questionbankentry_ids(cursor, question_ids)
+
+        existing_qbe_ids = fetch_existing_questionbankentry_ids_for_quiz(cursor, quizid)
+
+        for qid in question_ids:
+
+            if qid not in qbe_map:
+                continue
+
+            questionbankentryid, version = qbe_map[qid]
+
+            if questionbankentryid in existing_qbe_ids:
+                continue
+
+            slot = get_next_slot(cursor, quizid)
+
+            slot_id = insert_quiz_slot(
+                cursor,
+                quizid=quizid,
+                slot=slot,
+                maxmark=1,
+                grade_item_id=grade_item_id
+            )
+
+            insert_question_reference(
+                cursor,
+                using_context_id,
+                slot_id,
+                questionbankentryid,
+                version
+            )
+
+            inserted += 1
+
+        backfill_slot_grade_item_id(cursor, quizid, grade_item_id)
+
+        backfill_reference_versions(cursor, quizid)
+
+        update_sumgrades(cursor, quizid)
+
+    logger.info(f"{inserted} questions inserted into quiz {quizid}")
+
+    return inserted

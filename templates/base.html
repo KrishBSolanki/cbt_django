@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -33,7 +33,68 @@
       --text-muted: #64748b;
       --border: rgba(255,255,255,0.06);
       --border-hover: rgba(79,142,247,0.3);
+      --surface-1: rgba(255,255,255,0.04);
+      --surface-2: rgba(255,255,255,0.03);
+      --topbar-bg: rgba(10,14,23,0.8);
       --sidebar-w: 260px;
+    }
+
+    html[data-theme="light"] {
+      --bg-primary: #f5f7fb;
+      --bg-secondary: #ffffff;
+      --bg-card: #ffffff;
+      --bg-hover: rgba(15, 23, 42, 0.06);
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.12);
+      --accent-2: #7c3aed;
+      --success: #16a34a;
+      --warning: #d97706;
+      --danger: #dc2626;
+      --text-primary: #0f172a;
+      --text-secondary: #1f2937;
+      --text-muted: #4b5563;
+      --border: rgba(15, 23, 42, 0.10);
+      --border-hover: rgba(37, 99, 235, 0.35);
+      --surface-1: rgba(15, 23, 42, 0.04);
+      --surface-2: rgba(15, 23, 42, 0.03);
+      --topbar-bg: rgba(245,247,251,0.8);
+    }
+
+    html[data-theme="light"] [style*="color:#e2e8f0"],
+    html[data-theme="light"] [style*="color: #e2e8f0"],
+    html[data-theme="light"] [style*="color:#fff"],
+    html[data-theme="light"] [style*="color: #fff"],
+    html[data-theme="light"] [style*="color:#ffffff"],
+    html[data-theme="light"] [style*="color: #ffffff"],
+    html[data-theme="light"] [style*="color:white"],
+    html[data-theme="light"] [style*="color: white"] {
+      color: var(--text-primary) !important;
+    }
+
+    html[data-theme="light"] [style*="color:#94a3b8"],
+    html[data-theme="light"] [style*="color: #94a3b8"] {
+      color: var(--text-secondary) !important;
+    }
+
+    html[data-theme="light"] [style*="color:#64748b"],
+    html[data-theme="light"] [style*="color: #64748b"] {
+      color: var(--text-muted) !important;
+    }
+
+    html[data-theme="light"] [style*="background:rgba(255,255,255,0.05)"],
+    html[data-theme="light"] [style*="background: rgba(255,255,255,0.05)"],
+    html[data-theme="light"] [style*="background:rgba(255,255,255,0.04)"],
+    html[data-theme="light"] [style*="background: rgba(255,255,255,0.04)"],
+    html[data-theme="light"] [style*="background:rgba(255,255,255,0.03)"],
+    html[data-theme="light"] [style*="background: rgba(255,255,255,0.03)"] {
+      background: var(--surface-1) !important;
+    }
+
+    html[data-theme="light"] [style*="border:1px solid rgba(255,255,255,0.08)"],
+    html[data-theme="light"] [style*="border: 1px solid rgba(255,255,255,0.08)"],
+    html[data-theme="light"] [style*="border:1px solid rgba(255,255,255,0.05)"],
+    html[data-theme="light"] [style*="border: 1px solid rgba(255,255,255,0.05)"] {
+      border-color: var(--border) !important;
     }
 
     * { box-sizing: border-box; }
@@ -195,7 +256,7 @@
 
     .topbar {
       position: sticky; top: 0;
-      background: rgba(10,14,23,0.8);
+      background: var(--topbar-bg);
       backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
       padding: 14px 32px;
@@ -226,7 +287,7 @@
       transition: border-color .2s;
     }
 
-    .card-glass:hover { border-color: rgba(255,255,255,0.1); }
+    .card-glass:hover { border-color: var(--border-hover); }
 
     .stat-card {
       background: var(--bg-card);
@@ -282,7 +343,7 @@
     }
 
     .table-glass thead th {
-      background: rgba(255,255,255,0.03);
+      background: var(--surface-2);
       color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
@@ -368,7 +429,7 @@
 
     /* ── Form controls ── */
     .form-control-dark {
-      background: rgba(255,255,255,0.04);
+      background: var(--surface-1);
       border: 1px solid var(--border);
       color: var(--text-primary);
       border-radius: 10px;
@@ -481,6 +542,10 @@
 
   <nav class="nav-section">
     <div class="nav-label">Main</div>
+    <a href="{% url 'blueprint_design' %}" class="nav-item {% if active_page == 'blueprint_design' %}active{% endif %}">
+      <span class="nav-icon"><i class="bi bi-diagram-3"></i></span>
+      Blueprint Design
+    </a>
     <a href="{% url 'dashboard' %}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="nav-icon"><i class="bi bi-grid-1x2-fill"></i></span>
       Dashboard
@@ -501,6 +566,14 @@
     </a>
 
     <div class="nav-label">Papers</div>
+    <a href="{% url 'blueprint_generate' %}" class="nav-item {% if active_page == 'bp_generate' %}active{% endif %}">
+      <span class="nav-icon"><i class="bi bi-building"></i></span>
+      Department Blueprint
+    </a>
+    <a href="{% url 'blueprint_list' %}" class="nav-item {% if active_page == 'bp_list' %}active{% endif %}">
+      <span class="nav-icon"><i class="bi bi-diagram-3-fill"></i></span>
+      Generated Blueprints
+    </a>
     <a href="{% url 'generate_paper' %}" class="nav-item {% if active_page == 'generate' %}active{% endif %}">
       <span class="nav-icon"><i class="bi bi-magic"></i></span>
       Generate Paper
@@ -512,6 +585,18 @@
   </nav>
 
   <div class="sidebar-footer">
+    <button
+      id="themeToggle"
+      type="button"
+      class="btn-ghost"
+      style="width:100%;justify-content:space-between;margin-bottom:12px;"
+    >
+      <span style="display:inline-flex;align-items:center;gap:10px;">
+        <span class="nav-icon"><i class="bi bi-moon-stars-fill" id="themeToggleIcon"></i></span>
+        <span id="themeToggleLabel">Dark mode</span>
+      </span>
+      <span style="opacity:0.85;font-size:12px;">Toggle</span>
+    </button>
     <div class="user-card">
       <div class="user-avatar">{{ request.user.initials }}</div>
       <div style="flex:1;min-width:0;">
@@ -563,6 +648,40 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Alpine.js -->
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+
+<script>
+  (function () {
+    const storageKey = 'theme';
+    const root = document.documentElement;
+    const button = document.getElementById('themeToggle');
+    const label = document.getElementById('themeToggleLabel');
+    const icon = document.getElementById('themeToggleIcon');
+
+    function applyTheme(theme) {
+      root.setAttribute('data-theme', theme);
+      if (label) label.textContent = theme === 'light' ? 'Light mode' : 'Dark mode';
+      if (icon) icon.className = theme === 'light' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+    }
+
+    function getInitialTheme() {
+      const saved = localStorage.getItem(storageKey);
+      if (saved === 'light' || saved === 'dark') return saved;
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+
+    const initial = getInitialTheme();
+    applyTheme(initial);
+
+    if (button) {
+      button.addEventListener('click', function () {
+        const current = root.getAttribute('data-theme') || 'dark';
+        const next = current === 'light' ? 'dark' : 'light';
+        localStorage.setItem(storageKey, next);
+        applyTheme(next);
+      });
+    }
+  })();
+</script>
 
 {% block extra_js %}{% endblock %}
 </body>

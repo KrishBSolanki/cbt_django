@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Blueprint History{% endblock %}
+{% block page_title %}Blueprint Paper History{% endblock %}
+{% block topbar_actions %}<a href="{% url 'blueprint_generate' %}" class="btn btn-d btn-sm"><i class="bi bi-plus-lg"></i>New Blueprint Paper</a>{% endblock %}
+{% block content %}
+<div class="fu">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700">Your Blueprint-Generated Papers</div>
+      <div style="font-size:11.5px;color:#64748b;margin-top:1px">Groups of 3 sets (A/B/C) generated from exam blueprints</div>
+    </div>
+    {% if groups %}
+    <table class="tbl">
+      <thead><tr><th>Group ID</th><th>Department</th><th>Category</th><th>Course</th><th>Subject</th><th style="text-align:center">Total Marks</th><th>Generated</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for g in groups %}
+        <tr>
+          <td><code>{{ g.group_id }}</code></td>
+          <td><span class="pill p-d">{{ g.blueprint.department.code }}</span></td>
+          <td style="color:#a78bfa;font-weight:500">{{ g.blueprint.category.name }}</td>
+          <td><div style="font-weight:600;color:#e2e8f0;font-size:12px">{{ g.blueprint.course.course_code }}</div></td>
+          <td style="color:#e2e8f0">{{ g.blueprint.subject.name }}</td>
+          <td style="text-align:center"><span style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#22c55e">{{ g.blueprint.total_marks }}</span></td>
+          <td style="color:#64748b;font-size:11.5px">{{ g.generated_at|date:"d M Y, H:i" }}</td>
+          <td><a href="{% url 'blueprint_paper_preview' g.group_id %}" class="btn btn-g btn-sm"><i class="bi bi-eye"></i>View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:60px;color:#64748b">
+      <i class="bi bi-clock-history" style="font-size:36px;display:block;margin-bottom:12px;opacity:.25"></i>
+      No blueprint papers generated yet.
+      <a href="{% url 'blueprint_generate' %}" style="color:#0ea5e9;display:block;margin-top:10px">Generate your first blueprint paper →</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

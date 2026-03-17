@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}{{ department.name }}{% endblock %}
+{% block page_title %}<span style="color:var(--t3);font-weight:400;font-size:14px">Departments /</span> {{ department.name }}{% endblock %}
+{% block topbar_actions %}<a href="{% url 'blueprint_generate' %}?dept={{ department.id }}" class="btn btn-d btn-sm"><i class="bi bi-diagram-3-fill"></i>Generate from Blueprint</a>{% endblock %}
+{% block content %}
+<div class="fu">
+  <div style="background:linear-gradient(135deg,rgba(14,165,233,.08),rgba(124,92,191,.05));border:1px solid rgba(14,165,233,.18);border-radius:13px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;gap:16px">
+    <div style="width:52px;height:52px;background:linear-gradient(135deg,#0ea5e9,#0284c7);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0">{{ department.icon }}</div>
+    <div style="flex:1">
+      <div style="font-size:10px;font-weight:700;color:#0ea5e9;letter-spacing:.1em;text-transform:uppercase;margin-bottom:2px">{{ department.code }}</div>
+      <div style="font-family:'Fraunces',serif;font-size:20px;font-weight:700;color:#e2e8f0;margin-bottom:3px">{{ department.name }} Department</div>
+      {% if department.description %}<div style="font-size:12px;color:#94a3b8">{{ department.description }}</div>{% endif %}
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      {% for label,val,col in categories|length|list %}
+      {% endfor %}
+      <div style="text-align:center;padding:10px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">
+        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#0ea5e9">{{ categories|length }}</div>
+        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Categories</div>
+      </div>
+      <div style="text-align:center;padding:10px 16px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:9px">
+        <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:#a78bfa">{{ blueprints|length }}</div>
+        <div style="font-size:9px;color:#64748b;text-transform:uppercase;letter-spacing:.06em">Blueprints</div>
+      </div>
+    </div>
+  </div>
+
+  {% if categories %}
+  <div style="margin-bottom:18px">
+    <div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:.08em;text-transform:uppercase;margin-bottom:9px">Exam Categories</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      {% for cat in categories %}
+      <div style="background:rgba(14,165,233,.07);border:1px solid rgba(14,165,233,.15);border-radius:8px;padding:8px 14px;display:flex;align-items:center;gap:8px">
+        <div style="width:7px;height:7px;background:#0ea5e9;border-radius:50%"></div>
+        <div><div style="font-weight:600;color:#e2e8f0;font-size:12.5px">{{ cat.name }}</div><div style="font-size:10px;color:#64748b">{{ cat.blueprint_count }} blueprints</div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:15px 20px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0">Exam Blueprints</div>
+        <div style="font-size:11px;color:#64748b;margin-top:1px">Each row = one paper pattern. Click Generate to create 3 sets (A/B/C).</div>
+      </div>
+    </div>
+    {% if blueprints %}
+    <table class="tbl">
+      <thead><tr><th>Category</th><th>Course</th><th>Subject</th><th style="text-align:center">MCQ</th><th style="text-align:center">Per MCQ</th><th style="text-align:center">Descriptive</th><th style="text-align:center">Per Desc</th><th style="text-align:center">Total Marks</th><th style="text-align:center">Q Pool</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for bp in blueprints %}
+        <tr>
+          <td><span class="pill p-d">{{ bp.category.name }}</span></td>
+          <td><div style="font-weight:600;color:#e2e8f0;font-size:12px">{{ bp.course.course_code }}</div><div style="font-size:10.5px;color:#64748b">{{ bp.course.course_name|truncatechars:36 }}</div></td>
+          <td style="color:#e2e8f0;font-weight:500;font-size:12.5px">{{ bp.subject.name }}</td>
+          <td style="text-align:center"><span style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#4f8ef7">{{ bp.mcq_count }}</span></td>
+          <td style="text-align:center"><span class="pill p-b">×{{ bp.mcq_marks }}m</span></td>
+          <td style="text-align:center"><span style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#a78bfa">{{ bp.descriptive_count }}</span></td>
+          <td style="text-align:center"><span class="pill p-v">×{{ bp.descriptive_marks }}m</span></td>
+          <td style="text-align:center"><span style="font-family:'Fraunces',serif;font-size:19px;font-weight:700;color:#22c55e">{{ bp.total_marks }}</span></td>
+          <td style="text-align:center">
+            {% if bp._avail.ok %}<span style="color:#22c55e;font-size:13px" title="MCQ:{{ bp._avail.mcq_available }} Desc:{{ bp._avail.desc_available }}">✅</span>
+            {% else %}<span style="color:#ef4444;font-size:11px">⚠️</span>{% endif %}
+          </td>
+          <td><a href="{% url 'blueprint_generate' %}?dept={{ department.id }}&cat={{ bp.category.id }}&course={{ bp.course.id }}&subject={{ bp.subject.id }}" class="btn btn-d btn-sm"><i class="bi bi-diagram-3-fill"></i>Generate</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:50px;color:#64748b"><i class="bi bi-clipboard-data" style="font-size:36px;display:block;margin-bottom:10px;opacity:.25"></i>No blueprints. <a href="/admin/departments/examblueprint/add/" style="color:#0ea5e9">Add via Admin</a>.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

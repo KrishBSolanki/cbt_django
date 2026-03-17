@@ -3,17 +3,32 @@ Papers Views - Paper Generation and Preview
 """
 import json
 import io
+from decimal import Decimal
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
+from django.db import connections, transaction
 
 from papers.models import GeneratedPaper, PaperQuestion
 from papers.generator import generate_three_paper_sets
 from courses.models import Course, Quiz
 from questions.models import Question
+from integration.sync import (
+    backfill_reference_versions,
+    backfill_slot_grade_item_id,
+    ensure_section,
+    fetch_existing_questionbankentry_ids_for_quiz,
+    get_next_slot,
+    get_questionbankentry_ids,
+    get_quiz_grade_item_id,
+    get_using_context_id,
+    insert_question_reference,
+    insert_quiz_slot,
+    update_sumgrades,
+)
 
 
 @method_decorator(login_required, name='dispatch')
@@ -21,10 +36,109 @@ class GeneratePaperView(View):
     template_name = 'papers/generate.html'
 
     def get(self, request):
+        cs_id = request.GET.get('cs_id')
+        exam_id = request.GET.get('exam_id')
+        subject_id = request.GET.get('subject_id')
+
+        trms_mode = bool(cs_id or exam_id or subject_id)
+
+        if trms_mode:
+            trms_courses = []
+            trms_exams = []
+            exam_meta = None
+
+            with connections['trms'].cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, course_name
+                    FROM zrtiudp.courses
+                    ORDER BY course_name ASC
+                    """
+                )
+                trms_courses = cursor.fetchall()
+
+                if cs_id:
+                    cursor.execute(
+                        """
+                        SELECT
+                            ed.id,
+                            ed.cs_id,
+                            ed.subject_id,
+                            ed.type_sort,
+                            s.subject_name,
+                            s.subject_type,
+                            s.total_mark,
+                            s.mark,
+                            s.weightage
+                        FROM zrtiudp.exam_design ed
+                        JOIN zrtiudp.subjects s ON s.id = ed.subject_id
+                        WHERE ed.cs_id = %s
+                        AND ed.status = 1
+                        AND s.subject_type IN (2,3)
+                        AND s.status = 1
+                        ORDER BY s.subject_name ASC, ed.id ASC
+                        """,
+                        [cs_id]
+                    )
+
+                    rows = cursor.fetchall()
+                    trms_exams = [
+                        {
+                            'id': r[0],
+                            'cs_id': r[1],
+                            'subject_id': r[2],
+                            'exam_type': r[3],
+                            'subject_name': r[4],
+                            'subject_type': r[5],
+                            'total_marks': r[6],
+                            'min_marks': r[7],
+                            'weightage': r[8],
+                        }
+                        for r in rows
+                    ]
+
+                if exam_id:
+                    cursor.execute(
+                        """
+                        SELECT
+                            s.total_mark,
+                            s.mark,
+                            s.weightage
+                        FROM zrtiudp.exam_design ed
+                        JOIN zrtiudp.subjects s ON s.id = ed.subject_id
+                        WHERE ed.id = %s
+                        """,
+                        [exam_id]
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        exam_meta = {
+                            'total': row[0],
+                            'min': row[1],
+                            'weight': row[2],
+                        }
+
+            return render(
+                request,
+                self.template_name,
+                {
+                    'active_page': 'generate',
+                    'trms_mode': True,
+                    'trms_courses': trms_courses,
+                    'trms_exams': trms_exams,
+                    'selected_cs_id': cs_id,
+                    'selected_exam_id': exam_id,
+                    'selected_subject_id': subject_id,
+                    'exam_meta': exam_meta,
+                    'courses': Course.objects.filter(is_active=True).order_by('course_code'),
+                }
+            )
+
         courses = Course.objects.filter(is_active=True).order_by('course_code')
         context = {
             'courses': courses,
             'active_page': 'generate',
+            'trms_mode': False,
         }
         return render(request, self.template_name, context)
 
@@ -132,9 +246,129 @@ class PaperGroupPreviewView(View):
             'papers': papers,
             'group_id': group_id,
             'course': papers.first().course,
+            'quizzes': Quiz.objects.filter(is_active=True).order_by('quiz_name'),
             'active_page': 'generate',
         }
         return render(request, self.template_name, context)
+
+
+@login_required
+def push_paper_to_moodle_quiz(request, paper_id):
+    if request.method != 'POST':
+        return redirect('paper_detail', paper_id=paper_id)
+
+    paper = get_object_or_404(GeneratedPaper, id=paper_id)
+    quiz_pk = request.POST.get('quiz_id')
+    if not quiz_pk:
+        messages.error(request, 'Please select a quiz.')
+        return redirect('paper_group_preview', group_id=paper.paper_group_id)
+
+    quiz = get_object_or_404(Quiz, id=quiz_pk)
+    if not quiz.moodle_quiz_id:
+        messages.error(request, 'Selected quiz is not linked to Moodle (missing moodle_quiz_id).')
+        return redirect('paper_group_preview', group_id=paper.paper_group_id)
+
+    paper_questions = PaperQuestion.objects.filter(paper=paper).select_related('question').order_by('question_number')
+    moodle_question_ids = [pq.question.moodle_question_id for pq in paper_questions if pq.question.moodle_question_id]
+    if not moodle_question_ids:
+        messages.error(request, 'No Moodle-linked questions found in this paper set.')
+        return redirect('paper_detail', paper_id=paper.id)
+
+    moodle_conn = connections['moodle']
+    target_quizid = int(quiz.moodle_quiz_id)
+
+    added = 0
+    skipped = 0
+    missing = 0
+
+    try:
+        with transaction.atomic(using='moodle'):
+            with moodle_conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM mdl_quiz_slots WHERE quizid = %s",
+                    [target_quizid]
+                )
+
+                existing_count = cursor.fetchone()[0]
+
+                if existing_count > 0:
+                    messages.warning(
+                        request,
+                        f'This Moodle quiz already contains {existing_count} questions. '
+                        'New questions cannot be added. Please clear the quiz first.'
+                    )
+                    return redirect('paper_group_preview', group_id=paper.paper_group_id)
+                ensure_section(cursor, target_quizid)
+
+                grade_item_id = get_quiz_grade_item_id(cursor, target_quizid)
+                backfill_slot_grade_item_id(cursor, target_quizid, grade_item_id)
+
+                using_context_id = get_using_context_id(cursor, target_quizid)
+                if not using_context_id:
+                    messages.error(request, 'Could not resolve Moodle context for this quiz.')
+                    return redirect('paper_group_preview', group_id=paper.paper_group_id)
+
+                existing_qbe = fetch_existing_questionbankentry_ids_for_quiz(cursor, target_quizid)
+                next_slot = get_next_slot(cursor, target_quizid)
+
+                qid_to_qbe = get_questionbankentry_ids(cursor, moodle_question_ids)
+
+                for pq in paper_questions:
+                    qid = pq.question.moodle_question_id
+                    if not qid:
+                        missing += 1
+                        continue
+                    qbe_info = qid_to_qbe.get(int(qid))
+                    if not qbe_info:
+                        missing += 1
+                        continue
+                    qbe_id, qbe_version = qbe_info
+                    if qbe_id in existing_qbe:
+                        skipped += 1
+                        continue
+                    if qbe_version is None:
+                        missing += 1
+                        continue
+
+                    maxmark = pq.marks
+                    if isinstance(maxmark, Decimal):
+                        maxmark = float(maxmark)
+
+                    slot_id = insert_quiz_slot(
+                        cursor,
+                        quizid=target_quizid,
+                        slot=next_slot,
+                        maxmark=maxmark,
+                        grade_item_id=grade_item_id,
+                        page=1,
+                        displaynumber=next_slot,
+                        requireprevious=0,
+                    )
+
+                    insert_question_reference(
+                        cursor,
+                        using_context_id=using_context_id,
+                        slot_id=slot_id,
+                        questionbankentryid=qbe_id,
+                        version=qbe_version,
+                    )
+
+                    existing_qbe.add(qbe_id)
+                    next_slot += 1
+                    added += 1
+
+                update_sumgrades(cursor, target_quizid)
+                backfill_reference_versions(cursor, target_quizid)
+                backfill_slot_grade_item_id(cursor, target_quizid, grade_item_id)
+
+        if added:
+            messages.success(request, f'Added {added} questions to Moodle quiz "{quiz.quiz_name}". Skipped {skipped} duplicates.')
+        else:
+            messages.info(request, f'No new questions were added. Skipped {skipped} duplicates. Missing mappings: {missing}.')
+    except Exception as e:
+        messages.error(request, f'Failed to push questions to Moodle: {str(e)}')
+
+    return redirect('paper_group_preview', group_id=paper.paper_group_id)
 
 
 @method_decorator(login_required, name='dispatch')

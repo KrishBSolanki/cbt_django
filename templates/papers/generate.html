@@ -14,8 +14,69 @@
       <div class="card-glass" style="margin-bottom:16px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
           <div style="width:28px;height:28px;background:linear-gradient(135deg,#4f8ef7,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">1</div>
-          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Course & Quiz</div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">
+            {% if trms_mode %}Course / Exam (TRMS){% else %}Select Course & Quiz{% endif %}
+          </div>
         </div>
+
+        {% if trms_mode %}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label class="form-label-dark">Course (TRMS) *</label>
+            <select id="courseSelect" class="form-control-dark" required>
+              <option value="">— Select Course —</option>
+              {% for c in trms_courses %}
+              <option value="{{ c.0 }}" {% if selected_cs_id == c.0|stringformat:"s" %}selected{% endif %}>
+                {{ c.1 }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="form-label-dark">Exam (TRMS)</label>
+            <select id="examSelect" class="form-control-dark">
+              <option value="">— Select Exam —</option>
+              {% for e in trms_exams %}
+              <option
+                value="{{ e.id }}"
+                data-subject-id="{{ e.subject_id }}"
+                data-total="{{ e.total_marks }}"
+                data-min="{{ e.min_marks }}"
+                data-weight="{{ e.weightage }}"
+                {% if selected_exam_id == e.id|stringformat:"s" %}selected{% endif %}
+              >
+                {{ e.subject_name }} (Exam #{{ e.id }})
+              </option>
+              {% endfor %}
+            </select>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">
+              Change course to load its exams.
+            </div>
+          </div>
+        </div>
+
+        {% if exam_meta %}
+        <div style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2);border-radius:12px;padding:16px;margin-bottom:4px;">
+          <div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
+            <i class="bi bi-info-circle-fill"></i> TRMS Marks
+          </div>
+          <div style="display:flex;gap:18px;flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:120px;">
+              <div style="font-size:10px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;">Total</div>
+              <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);">{{ exam_meta.total }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:120px;">
+              <div style="font-size:10px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;">Min</div>
+              <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);">{{ exam_meta.min }}</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:2px;min-width:120px;">
+              <div style="font-size:10px;color:var(--text-muted);letter-spacing:0.1em;text-transform:uppercase;">Weightage</div>
+              <div style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);">{{ exam_meta.weight }}</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+        {% endif %}
 
         <form method="post" action="{% url 'generate_paper' %}" id="generateForm">
           {% csrf_token %}
@@ -23,6 +84,11 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
             <div>
               <label class="form-label-dark">Course *</label>
+              {% if trms_mode %}
+              <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+                Local Course/Quiz generator is not used in TRMS mode.
+              </div>
+              {% else %}
               <select name="course_id" class="form-control-dark" x-model="courseId" @change="onCourseChange()" required>
                 <option value="">— Select Course —</option>
                 {% for course in courses %}
@@ -31,22 +97,30 @@
                 </option>
                 {% endfor %}
               </select>
+              {% endif %}
             </div>
             <div>
               <label class="form-label-dark">Quiz (Optional)</label>
+              {% if trms_mode %}
+              <div style="font-size:12px;color:var(--text-muted);margin-top:8px;">
+                Quiz selection is hidden in TRMS mode.
+              </div>
+              {% else %}
               <select name="quiz_id" class="form-control-dark" x-model="quizId" @change="onQuizChange()">
                 <option value="">— All quizzes —</option>
                 <template x-for="quiz in quizzes" :key="quiz.id">
-                  <option :value="quiz.id" x-text="quiz.name + ' (' + quiz.question_count + ' Q)'"></option>
+                  <option :value="quiz.id" x-text="quiz.name + ' (' + quiz.question_count + ' Q)'" ></option>
                 </template>
               </select>
               <div x-show="loadingQuizzes" style="font-size:11px;color:#64748b;margin-top:4px;">
                 <i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;display:inline-block;"></i> Loading quizzes...
               </div>
+              {% endif %}
             </div>
           </div>
 
           <!-- Question availability -->
+          {% if not trms_mode %}
           <div x-show="stats.total > 0"
             style="background:rgba(79,142,247,0.06);border:1px solid rgba(79,142,247,0.15);border-radius:10px;padding:14px 16px;margin-top:4px;">
             <div style="font-size:12px;font-weight:600;color:#93c5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
@@ -71,6 +145,7 @@
               </div>
             </div>
           </div>
+          {% endif %}
         </div>
       </div>
 
@@ -250,7 +325,7 @@
 <script>
 function paperGenerator() {
   return {
-    courseId: '{{ request.GET.course|default:"" }}',
+    courseId: '{% if selected_cs_id %}{{ selected_cs_id }}{% else %}{{ request.GET.course|default:"" }}{% endif %}',
     quizId: '{{ request.GET.quiz|default:"" }}',
     totalQ: 30,
     easyPct: 40,
@@ -304,4 +379,38 @@ function paperGenerator() {
   }
 }
 </script>
+
+{% if trms_mode %}
+<script>
+  (function () {
+    const courseSelect = document.getElementById('courseSelect');
+    const examSelect = document.getElementById('examSelect');
+
+    if (courseSelect) {
+      courseSelect.addEventListener('change', function () {
+        const csId = this.value;
+        if (!csId) return;
+        window.location.href = `{% url 'generate_paper' %}?cs_id=${encodeURIComponent(csId)}`;
+      });
+    }
+
+    if (examSelect) {
+      examSelect.addEventListener('change', function () {
+        const csId = courseSelect ? courseSelect.value : '';
+        const examId = this.value;
+        const subjectId = this.selectedOptions && this.selectedOptions[0]
+          ? this.selectedOptions[0].getAttribute('data-subject-id')
+          : '';
+        if (!csId) return;
+        if (!examId) {
+          window.location.href = `{% url 'generate_paper' %}?cs_id=${encodeURIComponent(csId)}`;
+          return;
+        }
+        const qs = `cs_id=${encodeURIComponent(csId)}&exam_id=${encodeURIComponent(examId)}${subjectId ? '&subject_id=' + encodeURIComponent(subjectId) : ''}`;
+        window.location.href = `{% url 'generate_paper' %}?${qs}`;
+      });
+    }
+  })();
+</script>
+{% endif %}
 {% endblock %}

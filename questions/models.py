@@ -30,7 +30,7 @@ class QuestionCategory(models.Model):
 
 class Question(models.Model):
     """
-    Question model synced from Moodle
+    Question model synced from Moodle with Blueprint System extensions
     Table: dj_questions
     """
     DIFFICULTY_CHOICES = [
@@ -40,6 +40,8 @@ class Question(models.Model):
     ]
 
     QUESTION_TYPE_CHOICES = [
+        ('mcq', 'MCQ'),
+        ('descriptive', 'Descriptive'),
         ('multichoice', 'Multiple Choice'),
         ('truefalse', 'True/False'),
         ('shortanswer', 'Short Answer'),
@@ -49,16 +51,32 @@ class Question(models.Model):
         ('calculated', 'Calculated'),
     ]
 
-    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='questions')
+    course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     category = models.ForeignKey(QuestionCategory, on_delete=models.SET_NULL, null=True, blank=True, related_name='questions')
+
+    # Blueprint System fields
+    department = models.ForeignKey(
+        'departments.Department',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='questions'
+    )
+    subject = models.ForeignKey(
+        'departments.Subject',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='questions'
+    )
 
     question_text = models.TextField(db_column='text')
     question_type = models.CharField(max_length=64, choices=QUESTION_TYPE_CHOICES)
     difficulty = models.CharField(max_length=16, choices=DIFFICULTY_CHOICES, default='medium')
     marks = models.DecimalField(max_digits=5, decimal_places=2, default=1.0)
 
-    answer_data = models.JSONField(db_column='answer_data')
+    answer_data = models.JSONField(db_column='answer_data', default=list, blank=True)
 
     moodle_question_id = models.BigIntegerField(null=True, blank=True, unique=True)
 
@@ -70,7 +88,7 @@ class Question(models.Model):
         db_table = 'dj_questions'
         verbose_name = 'Question'
         verbose_name_plural = 'Questions'
-        managed = False
+        managed = True
 
     def __str__(self):
         return f"Q{self.id}: {self.question_text[:80]}..."

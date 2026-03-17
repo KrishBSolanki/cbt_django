@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'questions',
     'papers',
     'integration',
+    'departments',
 ]
 
 MIDDLEWARE = [
@@ -89,14 +90,16 @@ DATABASES = {
 },
     # TRMS external database (read-only)
     'trms': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.environ.get('TRMS_DB_NAME', 'trms'),
-        'USER': os.environ.get('TRMS_DB_USER', 'trms_user'),
-        'PASSWORD': os.environ.get('TRMS_DB_PASSWORD', 'trms_password'),
-        'HOST': os.environ.get('TRMS_DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('TRMS_DB_PORT', '3306'),
-        'TEST': {'NAME': 'test_trms'},
+    'ENGINE': 'django.db.backends.mysql',
+    'NAME': 'zrtiudp',
+    'USER': 'itms_cloud',
+    'PASSWORD': 'Ns546dfAYQBT',
+    'HOST': '69.62.80.57',
+    'PORT': '3306',
+    'OPTIONS': {
+        'charset': 'utf8mb4',
     },
+},
 }
 
 DATABASE_ROUTERS = ['integration.routers.MultiDBRouter']

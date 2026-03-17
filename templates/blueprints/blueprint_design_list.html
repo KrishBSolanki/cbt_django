@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Blueprint Design{% endblock %}
+{% block page_title %}Blueprint Design{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+  <div class="section-header" style="margin-bottom:24px;">
+    <div>
+      <div class="section-title">Blueprint Design</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:6px;">
+        Courses and TRMS exam designs available for paper generation.
+      </div>
+    </div>
+  </div>
+
+  <div class="card-glass" style="padding:0;overflow:hidden;">
+    <table class="table-glass">
+      <thead>
+        <tr>
+          <th style="width:80px;">Sr. No.</th>
+          <th>Course Name</th>
+          <th>Exam Name</th>
+          <th>Subject</th>
+          <th>Exam Type</th>
+          <th style="width:160px;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="font-family:'DM Mono',monospace;">{{ forloop.counter }}</td>
+          <td style="font-family:'DM Mono',monospace;">{{ r.course_name }}</td>
+          <td>
+            <span class="pill"
+              style="background:rgba(79,142,247,0.1);
+                     color:#93c5fd;
+                     border:1px solid rgba(79,142,247,0.2);">
+              Exam #{{ r.exam_id }}
+            </span>
+          </td>
+          <td>{{ r.subject_name }}</td>
+          <td>
+            <span class="pill"
+              style="background:rgba(168,85,247,0.08);
+                     color:#c4b5fd;
+                     border:1px solid rgba(168,85,247,0.18);">
+              {{ r.exam_type }}
+            </span>
+          </td>
+          <td>
+            <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;">
+              {% if r.exam_id %}
+              <a class="btn-ghost"
+                 style="padding:8px 14px;min-width:86px;justify-content:center;"
+                 href="{% url 'generate_paper' %}?cs_id={{ r.course_id }}&exam_id={{ r.exam_id }}&subject_id={{ r.subject_id }}">
+                <i class="bi bi-eye"></i> View
+              </a>
+              {% else %}
+              <span class="btn-ghost"
+                    style="padding:8px 14px;min-width:86px;justify-content:center;opacity:0.45;cursor:not-allowed;">
+                <i class="bi bi-eye"></i> View
+              </span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" style="padding:26px 16px;color:var(--text-muted);text-align:center;">
+            No records found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

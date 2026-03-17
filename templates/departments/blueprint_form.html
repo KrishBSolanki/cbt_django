@@ -1,0 +1,383 @@
+{% extends 'base.html' %}
+{% block title %}Create Blueprint{% endblock %}
+{% block page_title %}Create Exam Blueprint{% endblock %}
+
+{% block content %}
+<div class="fade-in" x-data="blueprintForm()" x-init="init()">
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+
+    <!-- Main form -->
+    <div>
+      <form method="post" id="bpForm">
+        {% csrf_token %}
+
+        <!-- Step 1: Selection -->
+        <div class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#4f8ef7,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:white;flex-shrink:0;">1</div>
+            <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#e2e8f0;">Select Combination</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <!-- Department -->
+            <div style="position:relative;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">
+                <i class="bi bi-building" style="color:#4f8ef7;margin-right:6px;"></i>Department <span style="color:#ef4444;">*</span>
+              </label>
+              <div style="position:relative;">
+                <select name="department" x-model="deptId" @change="onDeptChange()" required
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(79,142,247,0.3);border-radius:10px;padding:14px 40px 14px 14px;color:#e2e8f0;font-size:14px;cursor:pointer;appearance:none;transition:all 0.2s;"
+                  onfocus="this.style.borderColor='rgba(79,142,247,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.borderColor='rgba(79,142,247,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <option value="">Choose Department...</option>
+                  {% for d in departments %}
+                  <option value="{{ d.id }}" {% if initial.department_id == d.id|stringformat:"s" %}selected{% endif %}>{{ d.name }} ({{ d.code }})</option>
+                  {% endfor %}
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;"></i>
+              </div>
+            </div>
+
+            <!-- Category -->
+            <div style="position:relative;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">
+                <i class="bi bi-layers" style="color:#a78bfa;margin-right:6px;"></i>Category <span style="color:#ef4444;">*</span>
+              </label>
+              <div style="position:relative;">
+                <select name="category" x-model="catId" :disabled="!deptId || loadingCats" required
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(168,139,250,0.3);border-radius:10px;padding:14px 40px 14px 14px;color:#e2e8f0;font-size:14px;cursor:pointer;appearance:none;transition:all 0.2s;"
+                  :style="!deptId ? 'opacity:0.5;cursor:not-allowed;' : 'opacity:1;'"
+                  onfocus="this.style.borderColor='rgba(168,139,250,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.borderColor='rgba(168,139,250,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <option value="">Choose Category...</option>
+                  <template x-for="c in cats" :key="c.id">
+                    <option :value="c.id" x-text="c.name" :selected="catId == c.id"></option>
+                  </template>
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;"></i>
+                <i x-show="loadingCats" class="bi bi-arrow-clockwise" style="position:absolute;right:40px;top:50%;transform:translateY(-50%);color:#a78bfa;animation:spin 1s linear infinite;"></i>
+              </div>
+            </div>
+
+            <!-- Course -->
+            <div style="position:relative;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">
+                <i class="bi bi-book" style="color:#f59e0b;margin-right:6px;"></i>Course <span style="color:#ef4444;">*</span>
+              </label>
+              <div style="position:relative;">
+                <select name="course" x-model="courseId" @change="onCourseChange()" :disabled="!deptId || loadingCourses" required
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(245,158,11,0.3);border-radius:10px;padding:14px 40px 14px 14px;color:#e2e8f0;font-size:14px;cursor:pointer;appearance:none;transition:all 0.2s;"
+                  :style="!deptId ? 'opacity:0.5;cursor:not-allowed;' : 'opacity:1;'"
+                  onfocus="this.style.borderColor='rgba(245,158,11,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.borderColor='rgba(245,158,11,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <option value="">Choose Course...</option>
+                  <template x-for="c in courses" :key="c.id">
+                    <option :value="c.id" x-text="c.code + ' - ' + c.name" :selected="courseId == c.id"></option>
+                  </template>
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;"></i>
+                <i x-show="loadingCourses" class="bi bi-arrow-clockwise" style="position:absolute;right:40px;top:50%;transform:translateY(-50%);color:#f59e0b;animation:spin 1s linear infinite;"></i>
+              </div>
+            </div>
+
+            <!-- Subject -->
+            <div style="position:relative;">
+              <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">
+                <i class="bi bi-journal-text" style="color:#22c55e;margin-right:6px;"></i>Subject <span style="color:#ef4444;">*</span>
+              </label>
+              <div style="position:relative;">
+                <select name="subject" x-model="subjectId" :disabled="!courseId || loadingSubjects" required
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(34,197,94,0.3);border-radius:10px;padding:14px 40px 14px 14px;color:#e2e8f0;font-size:14px;cursor:pointer;appearance:none;transition:all 0.2s;"
+                  :style="!courseId ? 'opacity:0.5;cursor:not-allowed;' : subjects.length === 0 ? 'border-color:rgba(239,68,68,0.5);' : 'opacity:1;'"
+                  onfocus="this.style.borderColor='rgba(34,197,94,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.background='rgba(15,23,42,0.6)';">
+                  <option value="" :selected="!subjectId" x-show="subjects.length > 0">Choose Subject...</option>
+                  <option value="" x-show="subjects.length === 0 && !loadingSubjects">No subjects available for this course</option>
+                  <template x-for="s in subjects" :key="s.id">
+                    <option :value="s.id.toString()" x-text="s.name" :selected="subjectId == s.id"></option>
+                  </template>
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;"></i>
+                <i x-show="loadingSubjects" class="bi bi-arrow-clockwise" style="position:absolute;right:40px;top:50%;transform:translateY(-50%);color:#22c55e;animation:spin 1s linear infinite;"></i>
+              </div>
+              <div x-show="subjects.length === 0 && courseId && !loadingSubjects" style="margin-top:8px;font-size:11px;color:#fca5a5;display:flex;align-items:center;gap:6px;">
+                <i class="bi bi-exclamation-triangle-fill"></i> No subjects found. Please add subjects in the admin.
+              </div>
+            </div>
+
+            <!-- Type of Paper (Engineering only) -->
+            <div style="position:relative;" x-show="isEngg" x-transition>
+              <label style="display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:10px;">
+                <i class="bi bi-diagram-3-fill" style="color:#06b6d4;margin-right:6px;"></i>Type of Paper
+              </label>
+              <div style="position:relative;">
+                <select name="paper_type" x-model="paperType"
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(6,182,212,0.3);border-radius:10px;padding:14px 40px 14px 14px;color:#e2e8f0;font-size:14px;cursor:pointer;appearance:none;transition:all 0.2s;"
+                  onfocus="this.style.borderColor='rgba(6,182,212,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.borderColor='rgba(6,182,212,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <option value="">Choose Type...</option>
+                  <option value="First Visit">First Visit</option>
+                  <option value="Second Visit">Second Visit</option>
+                  <option value="Third Visit">Third Visit</option>
+                  <option value="Only One Visit">Only One Visit</option>
+                </select>
+                <i class="bi bi-chevron-down" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#64748b;pointer-events:none;"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Paper Configuration -->
+        <div class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:white;flex-shrink:0;">2</div>
+            <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#e2e8f0;">Paper Configuration</div>
+          </div>
+
+          <!-- MCQ Section -->
+          <div style="background:linear-gradient(135deg,rgba(79,142,247,0.08),rgba(79,142,247,0.02));border:1.5px solid rgba(79,142,247,0.2);border-radius:14px;padding:24px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+              <div style="width:28px;height:28px;background:rgba(79,142,247,0.2);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-check-square" style="color:#4f8ef7;font-size:14px;"></i>
+              </div>
+              <div style="font-size:12px;font-weight:700;color:#4f8ef7;letter-spacing:0.08em;text-transform:uppercase;">Section A — MCQ</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:10px;">Number of MCQ Questions</label>
+                <div style="position:relative;">
+                  <input type="number" name="mcq_count" value="40" min="0" max="100" required
+                    style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(79,142,247,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:15px;font-weight:600;transition:all 0.2s;"
+                    onfocus="this.style.borderColor='rgba(79,142,247,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                    onblur="this.style.borderColor='rgba(79,142,247,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:11px;color:#64748b;">ques</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:10px;">Marks per MCQ</label>
+                <div style="position:relative;">
+                  <input type="number" name="mcq_marks" value="1" min="0" max="10" required
+                    style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(79,142,247,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:15px;font-weight:600;transition:all 0.2s;"
+                    onfocus="this.style.borderColor='rgba(79,142,247,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                    onblur="this.style.borderColor='rgba(79,142,247,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:11px;color:#64748b;">marks</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Descriptive Section -->
+          <div style="background:linear-gradient(135deg,rgba(124,92,191,0.08),rgba(124,92,191,0.02));border:1.5px solid rgba(124,92,191,0.2);border-radius:14px;padding:24px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+              <div style="width:28px;height:28px;background:rgba(124,92,191,0.2);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-pencil-square" style="color:#a78bfa;font-size:14px;"></i>
+              </div>
+              <div style="font-size:12px;font-weight:700;color:#a78bfa;letter-spacing:0.08em;text-transform:uppercase;">Section B — Descriptive</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:10px;">Number of Descriptive Questions</label>
+                <div style="position:relative;">
+                  <input type="number" name="descriptive_count" value="6" min="0" max="20" required
+                    style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(168,139,250,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:15px;font-weight:600;transition:all 0.2s;"
+                    onfocus="this.style.borderColor='rgba(168,139,250,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                    onblur="this.style.borderColor='rgba(168,139,250,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:11px;color:#64748b;">ques</span>
+                </div>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:500;color:#94a3b8;margin-bottom:10px;">Marks per Descriptive Question</label>
+                <div style="position:relative;">
+                  <input type="number" name="descriptive_marks" value="10" min="0" max="100" required
+                    style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(168,139,250,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:15px;font-weight:600;transition:all 0.2s;"
+                    onfocus="this.style.borderColor='rgba(168,139,250,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                    onblur="this.style.borderColor='rgba(168,139,250,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                  <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:11px;color:#64748b;">marks</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Duration -->
+          <div style="background:linear-gradient(135deg,rgba(245,158,11,0.08),rgba(245,158,11,0.02));border:1.5px solid rgba(245,158,11,0.2);border-radius:14px;padding:24px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+              <div style="width:28px;height:28px;background:rgba(245,158,11,0.2);border-radius:6px;display:flex;align-items:center;justify-content:center;">
+                <i class="bi bi-clock" style="color:#f59e0b;font-size:14px;"></i>
+              </div>
+              <div style="font-size:12px;font-weight:700;color:#f59e0b;letter-spacing:0.08em;text-transform:uppercase;">Exam Duration</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr;max-width:50%;">
+              <div style="position:relative;">
+                <input type="number" name="duration_minutes" value="180" min="30" max="300" required
+                  style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(245,158,11,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:15px;font-weight:600;transition:all 0.2s;"
+                  onfocus="this.style.borderColor='rgba(245,158,11,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+                  onblur="this.style.borderColor='rgba(245,158,11,0.3)';this.style.background='rgba(15,23,42,0.6)';">
+                <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:12px;color:#64748b;">minutes</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Instructions -->
+        <div class="card-glass" style="margin-bottom:20px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:32px;height:32px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:white;flex-shrink:0;">3</div>
+            <div style="font-family:'Fraunces',serif;font-size:17px;font-weight:700;color:#e2e8f0;">Exam Instructions (Optional)</div>
+          </div>
+          <textarea name="instructions" rows="4" placeholder="Enter any special instructions for this exam..."
+            style="width:100%;background:rgba(15,23,42,0.6);border:1.5px solid rgba(34,197,94,0.3);border-radius:10px;padding:14px 16px;color:#e2e8f0;font-size:14px;resize:vertical;transition:all 0.2s;"
+            onfocus="this.style.borderColor='rgba(34,197,94,0.6)';this.style.background='rgba(15,23,42,0.8)';"
+            onblur="this.style.borderColor='rgba(34,197,94,0.3)';this.style.background='rgba(15,23,42,0.6)';"></textarea>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div style="display:flex;gap:14px;">
+          <button type="submit" class="btn-primary-custom" style="flex:1;justify-content:center;padding:16px;font-size:15px;border-radius:12px;">
+            <i class="bi bi-plus-lg"></i> Create Blueprint
+          </button>
+          <a href="{% url 'blueprint_generate' %}" class="btn-ghost" style="display:inline-flex;padding:16px 28px;border-radius:12px;">
+            Cancel
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Right panel -->
+    <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:16px;">
+      
+      <!-- About Card -->
+      <div class="card-glass">
+        <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+          <i class="bi bi-info-circle" style="color:#4f8ef7;"></i> About Blueprints
+        </div>
+        <div style="font-size:13px;color:#94a3b8;line-height:1.9;">
+          A blueprint defines the paper structure for a specific <strong style="color:#e2e8f0;">Department × Category × Course × Subject</strong> combination.
+          <br><br>
+          <div style="background:rgba(79,142,247,0.08);border:1px solid rgba(79,142,247,0.15);border-radius:10px;padding:14px;">
+            <div style="font-size:11px;font-weight:700;color:#4f8ef7;margin-bottom:10px;">DEFAULT CONFIGURATION</div>
+            <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
+              • <span style="color:#e2e8f0;">40 MCQ</span> × 1 mark = 40 marks<br>
+              • <span style="color:#e2e8f0;">6 Descriptive</span> × 10 marks = 60 marks<br>
+              • <strong style="color:#22c55e;">Total: 100 marks</strong>, 3 hours
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tips Card -->
+      <div style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2);border-radius:14px;padding:18px;">
+        <div style="font-size:13px;font-weight:700;color:#c4b5fd;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+          <i class="bi bi-lightbulb-fill"></i> Tips
+        </div>
+        <div style="font-size:12px;color:#94a3b8;line-height:1.9;">
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <i class="bi bi-check2" style="color:#22c55e;margin-top:4px;"></i>
+            <span>Ensure you have enough questions in the Question Bank</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
+            <i class="bi bi-check2" style="color:#22c55e;margin-top:4px;"></i>
+            <span>Both MCQ and Descriptive questions are needed</span>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:8px;">
+            <i class="bi bi-check2" style="color:#22c55e;margin-top:4px;"></i>
+            <span>Blueprint can be used to generate A/B/C paper sets</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+  @keyframes spin { to { transform: rotate(360deg); } }
+  select option { background: #0f172a; color: #e2e8f0; }
+</style>
+<script>
+function blueprintForm() {
+  return {
+    deptId: '{{ initial.department_id|default:"" }}',
+    catId: '{{ initial.category_id|default:"" }}',
+    courseId: '{{ initial.course_id|default:"" }}',
+    subjectId: '{{ initial.subject_id|default:"" }}',
+    paperType: '',
+    enggDeptId: '{{ engg_dept_id|default:"" }}',
+    cats: [],
+    courses: [],
+    subjects: [],
+    loadingCats: false,
+    loadingCourses: false,
+    loadingSubjects: false,
+
+    get isEngg() {
+      return this.enggDeptId && this.deptId && (this.deptId.toString() === this.enggDeptId.toString());
+    },
+
+    async init() {
+      if (this.deptId) {
+        await this.fetchCats();
+        await this.fetchCourses();
+      }
+      if (this.courseId) {
+        await this.fetchSubjects();
+      }
+    },
+
+    async onDeptChange() {
+      this.catId = '';
+      this.courseId = '';
+      this.subjectId = '';
+      this.paperType = '';
+      this.cats = [];
+      this.courses = [];
+      this.subjects = [];
+      if (this.deptId) {
+        await this.fetchCats();
+        await this.fetchCourses();
+      }
+    },
+
+    async onCourseChange() {
+      this.subjectId = '';
+      this.subjects = [];
+      this.paperType = '';
+      if (this.courseId) {
+        await this.fetchSubjects();
+      }
+    },
+
+    async fetchCats() {
+      this.loadingCats = true;
+      try {
+        const r = await fetch(`/departments/api/categories/${this.deptId}/`);
+        const d = await r.json();
+        this.cats = d.categories;
+      } catch(e) { console.error(e); }
+      this.loadingCats = false;
+    },
+
+    async fetchCourses() {
+      this.loadingCourses = true;
+      try {
+        const r = await fetch(`/departments/api/courses/${this.deptId}/${this.catId || 0}/`);
+        const d = await r.json();
+        this.courses = d.courses;
+      } catch(e) { console.error(e); }
+      this.loadingCourses = false;
+    },
+
+    async fetchSubjects() {
+      this.loadingSubjects = true;
+      try {
+        const r = await fetch(`/departments/api/subjects/${this.deptId}/${this.catId || 0}/${this.courseId}/`);
+        const d = await r.json();
+        this.subjects = d.subjects;
+      } catch(e) { console.error(e); }
+      this.loadingSubjects = false;
+    }
+  }
+}
+</script>
+{% endblock %}

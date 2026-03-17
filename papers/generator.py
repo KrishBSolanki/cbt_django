@@ -167,8 +167,69 @@ def generate_three_paper_sets(
 
         papers.append(paper)
 
+    from integration.sync import push_questions_to_quiz
+
+# ------------------------------------------------
+# PUSH QUESTIONS TO MOODLE QUIZ
+# ------------------------------------------------
+
+    if quiz:
+
+        try:
+
+            # Use Set A only
+            set_a_paper = papers[0]
+
+            question_ids = [
+                pq.question.moodle_question_id
+                for pq in set_a_paper.paper_questions.all()
+                if pq.question.moodle_question_id
+            ]
+
+            if question_ids:
+
+                push_questions_to_quiz(
+                    quiz.moodle_quiz_id,
+                    question_ids
+                )
+
+                logger.info(
+                    f"Pushed {len(question_ids)} questions to Moodle quiz {quiz.moodle_quiz_id}"
+                )
+
+        except Exception as e:
+
+            logger.error(f"Moodle push failed: {str(e)}")
+
+
     return {
         "papers": papers,
         "group_id": group_id,
         "warnings": [],
     }
+
+
+def generate_blueprint_paper(blueprint, faculty):
+    """
+    Blueprint-driven paper generation wrapper.
+    
+    Generates 3 paper sets (A, B, C) based on an ExamBlueprint configuration.
+    This is a convenience wrapper that delegates to departments.generator.
+    
+    Args:
+        blueprint: ExamBlueprint instance from departments.models
+        faculty: Faculty user generating the paper
+        
+    Returns:
+        dict: {
+            'papers': [GeneratedPaper_A, GeneratedPaper_B, GeneratedPaper_C],
+            'group_id': str,
+            'warnings': [str, ...],
+            'blueprint': ExamBlueprint
+        }
+        
+    Raises:
+        ValueError: If question pool is insufficient for the blueprint requirements
+    """
+    from departments.generator import generate_blueprint_paper_sets
+    return generate_blueprint_paper_sets(blueprint, faculty)
