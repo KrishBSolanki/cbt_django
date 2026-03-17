@@ -71,7 +71,7 @@ DATABASES = {
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'exam_paper_system',
             'USER': 'root',
-            'PASSWORD': 'Uganda@18',
+            'PASSWORD': 'root',
             'HOST': '127.0.0.1',
             'PORT': '3306',
         'OPTIONS': {

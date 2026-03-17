@@ -19,14 +19,14 @@
             <label class="form-label-dark">Course (TRMS) *</label>
             <select id="courseSelect" class="form-control-dark" required>
               <option value="">— Select Course —</option>
-              {% for c in trms_courses %}<option value="{{ c.0 }}" {% if selected_cs_id == c.0|stringformat:"s" %}selected{% endif %}>{{ c.1 }}</option>{% endfor %}
+              {% for c in trms_courses %}<option value="{{ c.0 }}">{{ c.1 }}</option>{% endfor %}
             </select>
           </div>
           <div>
             <label class="form-label-dark">Exam (TRMS)</label>
             <select id="examSelect" class="form-control-dark">
               <option value="">— Select Exam —</option>
-              {% for e in trms_exams %}<option value="{{ e.id }}" data-subject-id="{{ e.subject_id }}" data-total="{{ e.total_marks }}" data-min="{{ e.min_marks }}" data-weight="{{ e.weightage }}" {% if selected_exam_id == e.id|stringformat:"s" %}selected{% endif %}>{{ e.subject_name }} (Exam #{{ e.id }})</option>{% endfor %}
+              {% for e in trms_exams %}<option value="{{ e.id }}" data-subject-id="{{ e.subject_id }}" data-total="{{ e.total_marks }}" data-min="{{ e.min_marks }}" data-weight="{{ e.weightage }}">{{ e.subject_name }} (Exam #{{ e.id }})</option>{% endfor %}
             </select>
             <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Change course to load its exams.</div>
           </div>
@@ -51,6 +51,11 @@
         {% endif %}
         <form method="post" action="{% url 'generate_paper' %}" id="generateForm">
           {% csrf_token %}
+          {% if trms_mode %}
+          <!-- Hidden inputs for TRMS mode -->
+          <input type="hidden" name="cs_id" id="hiddenCsId" value="">
+          <input type="hidden" name="exam_id" id="hiddenExamId" value="">
+          {% endif %}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
             <div>
               <label class="form-label-dark">Course *</label>
@@ -119,7 +124,7 @@
           </div>
 
           <div>
-            <label class="form-label-dark">Marks</label>
+            <label class="form-label-dark">Marks Per Question</label>
             <input type="number" id="marks" class="form-control-dark">
           </div>
 
@@ -272,8 +277,158 @@
 {% endblock %}
 
 {% block extra_js %}
-<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+<style>@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Select2 Dark Theme Customization */
+.select2-container--default .select2-selection--single {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 10px;
+  height: 40px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  width: 100% !important;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+  color: var(--text-primary);
+  line-height: 38px;
+  padding-left: 14px;
+  padding-right: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+  height: 38px;
+  right: 10px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow b {
+  border-color: var(--text-primary) transparent transparent transparent;
+}
+
+.select2-dropdown {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  width: auto !important;
+  min-width: 200px;
+  z-index: 9999 !important;
+}
+
+.select2-results__option {
+  color: var(--text-primary);
+  padding: 12px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.select2-results__option--highlighted {
+  background: var(--accent-glow);
+  color: var(--accent);
+}
+
+.select2-results__option[aria-selected="true"] {
+  background: rgba(79, 142, 247, 0.1);
+  color: var(--accent);
+}
+
+.select2-container--default.select2-container--disabled .select2-selection--single {
+  background: var(--bg-card);
+  opacity: 0.6;
+}
+
+.select2-container--default .select2-selection--single:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,142,247,0.1);
+}
+
+.select2-container--default.select2-container--focus .select2-selection--single {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79,142,247,0.1);
+}
+
+.select2-search--dropdown .select2-search__field {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: 'DM Sans', sans-serif;
+  width: 100% !important;
+}
+
+.select2-search--dropdown .select2-search__field:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79,142,247,0.1);
+}
+</style>
 <script>
+// Ensure jQuery is loaded before Select2
+if (typeof jQuery === 'undefined') {
+  console.error('jQuery is not loaded!');
+}
+
+$(document).ready(function() {
+  console.log('Initializing Select2...');
+  
+  // Destroy any existing Select2 instances first
+  $('.form-control-dark').each(function() {
+    if ($(this).hasClass('select2-hidden-accessible')) {
+      $(this).select2('destroy');
+    }
+  });
+  
+  // Initialize Course dropdown with search enabled
+  $('#courseSelect').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    placeholder: '— Select Course —',
+    allowClear: true,
+    minimumResultsForSearch: 0 // Always show search box
+  });
+  
+  // Initialize Exam dropdown
+  $('#examSelect').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    placeholder: '— Select Exam —',
+    allowClear: true
+  });
+  
+  // Initialize other dropdowns
+  $('#category').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    placeholder: 'Select Category',
+    allowClear: true
+  });
+  
+  $('#q_type').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    minimumResultsForSearch: -1, // Hide search for small dropdowns
+    allowClear: false
+  });
+  
+  $('#tag').select2({
+    theme: 'bootstrap4',
+    width: '100%',
+    minimumResultsForSearch: -1, // Hide search for small dropdowns
+    allowClear: false
+  });
+  
+  console.log('Select2 initialized successfully');
+});
+
 function paperGenerator() {
   return {
     courseId: '{% if selected_cs_id %}{{ selected_cs_id }}{% else %}{{ request.GET.course|default:"" }}{% endif %}',
@@ -379,8 +534,9 @@ function getCSRFToken() {
 {% if trms_mode %}
 <script>
 (function () {
-  const courseSelect = document.getElementById('courseSelect');
-  const examSelect = document.getElementById('examSelect');
+  const courseSelect = $('#courseSelect');
+  const examSelect = $('#examSelect');
+  
   function loadExamMeta(option) {
     if (!option) return;
     const total = option.getAttribute('data-total');
@@ -394,24 +550,60 @@ function getCSRFToken() {
     if (total) { card.style.display = 'block'; totalEl.innerText = total; minEl.innerText = min || ''; weightEl.innerText = weight || ''; }
     else { card.style.display = 'none'; totalEl.innerText = ''; minEl.innerText = ''; weightEl.innerText = ''; }
   }
-  if (courseSelect) {
-    courseSelect.addEventListener('change', function () {
-      const csId = this.value; if (!csId) return;
-      window.location.href = `{% url 'generate_paper' %}?cs_id=${encodeURIComponent(csId)}`;
+  
+  if (courseSelect.length) {
+    courseSelect.on('change', function () {
+      const csId = this.value; 
+      
+      // Update hidden input
+      $('#hiddenCsId').val(csId);
+      
+      if (!csId) return;
+      
+      // Clear exam dropdown and hidden input
+      examSelect.empty().append('<option value="">— Select Exam —</option>');
+      examSelect.trigger('change');
+      $('#hiddenExamId').val('');
+      
+      // Load exams via AJAX instead of page refresh
+      $.ajax({
+        url: `/papers/api/exams/${csId}/`,
+        method: 'GET',
+        success: function(data) {
+          examSelect.empty().append('<option value="">— Select Exam —</option>');
+          if (data.exams && data.exams.length > 0) {
+            data.exams.forEach(function(exam) {
+              const option = `<option value="${exam.id}" data-subject-id="${exam.subject_id}" data-total="${exam.total_marks}" data-min="${exam.min_marks}" data-weight="${exam.weightage}">${exam.subject_name} (Exam #${exam.id})</option>`;
+              examSelect.append(option);
+            });
+          }
+          examSelect.trigger('change');
+        },
+        error: function() {
+          console.error('Failed to load exams');
+        }
+      });
     });
   }
-  if (examSelect) {
-    examSelect.addEventListener('change', function () {
-      loadExamMeta(this.selectedOptions ? this.selectedOptions[0] : null);
-      const csId = courseSelect ? courseSelect.value : '';
-      const examId = this.value;
-      const subjectId = this.selectedOptions && this.selectedOptions[0] ? this.selectedOptions[0].getAttribute('data-subject-id') : '';
-      if (!csId) return;
-      if (!examId) { window.location.href = `{% url 'generate_paper' %}?cs_id=${encodeURIComponent(csId)}`; return; }
-      const qs = `cs_id=${encodeURIComponent(csId)}&exam_id=${encodeURIComponent(examId)}${subjectId ? '&subject_id=' + encodeURIComponent(subjectId) : ''}`;
-      window.location.href = `{% url 'generate_paper' %}?${qs}`;
+  
+  if (examSelect.length) {
+    examSelect.on('change', function () {
+      // Get the selected option from the original select
+      const selectedOption = examSelect.find('option:selected')[0];
+      loadExamMeta(selectedOption);
+      
+      // Update hidden input
+      $('#hiddenExamId').val(this.value);
+      
+      // Removed page refresh logic - just update metadata
+      // The selections are preserved in the form and will be submitted when user clicks Generate
     });
-    window.addEventListener('load', function () { const selected = document.querySelector('#examSelect option:checked'); loadExamMeta(selected); });
+    
+    // Load exam meta on page load
+    $(window).on('load', function () { 
+      const selected = examSelect.find('option:selected')[0]; 
+      loadExamMeta(selected); 
+    });
   }
 })();
 </script>
