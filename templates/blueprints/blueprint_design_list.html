@@ -11,6 +11,9 @@
         Courses and TRMS exam designs available for paper generation.
       </div>
     </div>
+    <a href="{% url 'generate_paper' %}?trms=1" class="btn-primary-custom">
+      <i class="bi bi-plus-lg"></i> Create Blueprint
+    </a>
   </div>
 
   <div class="card-glass" style="padding:0;overflow:hidden;">
@@ -18,10 +21,8 @@
       <thead>
         <tr>
           <th style="width:80px;">Sr. No.</th>
-          <th>Course Name</th>
-          <th>Exam Name</th>
-          <th>Subject</th>
-          <th>Exam Type</th>
+          <th>Course</th>
+          <th>Exam</th>
           <th style="width:160px;">Action</th>
         </tr>
       </thead>
@@ -31,21 +32,7 @@
           <td style="font-family:'DM Mono',monospace;">{{ forloop.counter }}</td>
           <td style="font-family:'DM Mono',monospace;">{{ r.course_name }}</td>
           <td>
-            <span class="pill"
-              style="background:rgba(79,142,247,0.1);
-                     color:#93c5fd;
-                     border:1px solid rgba(79,142,247,0.2);">
-              Exam #{{ r.exam_id }}
-            </span>
-          </td>
-          <td>{{ r.subject_name }}</td>
-          <td>
-            <span class="pill"
-              style="background:rgba(168,85,247,0.08);
-                     color:#c4b5fd;
-                     border:1px solid rgba(168,85,247,0.18);">
-              {{ r.exam_type }}
-            </span>
+            {{ r.subject_name }}
           </td>
           <td>
             <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;">
@@ -66,7 +53,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" style="padding:26px 16px;color:var(--text-muted);text-align:center;">
+          <td colspan="4" style="padding:26px 16px;color:var(--text-muted);text-align:center;">
             No records found.
           </td>
         </tr>

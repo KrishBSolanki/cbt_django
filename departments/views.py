@@ -23,34 +23,43 @@ def blueprint_design_list(request):
     trms_conn = connections['trms']
 
     with trms_conn.cursor() as cursor:
+        # Debug: Check what subjects exist in blueprints
         cursor.execute(
             """
-            SELECT
-              c.id AS course_id,
-              c.course_name AS course_name,
-              t.exam_id AS exam_id,
-              t.subject_id AS subject_id,
-              t.subject_name AS subject_name,
-              t.exam_type AS exam_type
-            FROM zrtiudp.courses c
-            LEFT JOIN (
-              SELECT
-                ed.id AS exam_id,
-                ed.cs_id AS cs_id,
-                ed.subject_id AS subject_id,
-                ed.type_sort AS exam_type,
-                s.subject_name AS subject_name
-              FROM zrtiudp.exam_design ed
-              JOIN zrtiudp.subjects s ON s.id = ed.subject_id
-              WHERE ed.status = 1
-              AND s.subject_type IN (2,3)
-              AND s.status = 1
-            ) t ON t.cs_id = c.id
-            ORDER BY c.course_name ASC, t.subject_name ASC, t.exam_id ASC
+            SELECT DISTINCT bp.subject_id, s.subject_name
+            FROM zrtiudp.cbt_blue_prints bp
+            JOIN zrtiudp.subjects s ON s.id = bp.subject_id
+            WHERE bp.status = 1
             """
+        )
+        all_subjects = cursor.fetchall()
+        print(f"DEBUG: All subjects in blueprints: {all_subjects}")
+
+        # Get distinct blueprint combinations using GROUP BY (MySQL compatible)
+        cursor.execute(
+            """
+            SELECT 
+              bp.cs_id AS course_id,
+              CASE 
+                WHEN s.subject_name = 'Miscellaneous' THEN 'Transportation & Air Brake (परिवहन एवं एयर ब्रेक)'
+                WHEN s.subject_name = 'Engineering' THEN 'C&w (air Brake )'
+                ELSE s.subject_name
+              END AS course_name,
+              bp.exam_id AS exam_id,
+              bp.subject_id AS subject_id,
+              s.subject_name AS subject_name
+            FROM zrtiudp.cbt_blue_prints bp
+            JOIN zrtiudp.subjects s ON s.id = bp.subject_id
+            WHERE bp.status = 1
+            GROUP BY bp.cs_id, bp.exam_id, bp.subject_id, s.subject_name
+            ORDER BY course_name ASC, bp.exam_id ASC
+            """,
         )
 
         rows = cursor.fetchall()
+        print(f"DEBUG: Fetched {len(rows)} rows:")
+        for r in rows:
+            print(f"  course_id={r[0]}, mapped_course={r[1]}, exam_id={r[2]}, subject_id={r[3]}, subject_name={r[4]}")
 
     combined = [
         {
@@ -59,7 +68,6 @@ def blueprint_design_list(request):
             'exam_id': r[2],
             'subject_id': r[3],
             'subject_name': r[4],
-            'exam_type': r[5],
         }
         for r in rows
     ]

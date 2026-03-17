@@ -39,8 +39,9 @@ class GeneratePaperView(View):
         cs_id = request.GET.get('cs_id')
         exam_id = request.GET.get('exam_id')
         subject_id = request.GET.get('subject_id')
+        trms_flag = (request.GET.get('trms') or '').strip()
 
-        trms_mode = bool(cs_id or exam_id or subject_id)
+        trms_mode = bool(cs_id or exam_id or subject_id or trms_flag)
 
         if trms_mode:
             trms_courses = []
@@ -119,39 +120,45 @@ class GeneratePaperView(View):
                             'weight': row[2],
                         }
 
-            moodle = connections['moodle']
-            with moodle.cursor() as cursor:
-                cursor.execute(
-                    """
-                    SELECT id, name, parent
-                    FROM mdl_question_categories
-                    ORDER BY name
-                    """
-                )
-                rows = cursor.fetchall()
-
-            categories_by_id = {r[0]: {'id': r[0], 'name': r[1], 'parent': r[2]} for r in rows}
-            children_by_parent = {}
-            for r in rows:
-                cat_id, _name, parent_id = r
-                children_by_parent.setdefault(parent_id, []).append(cat_id)
-
-            def _flatten(parent_id, depth):
-                flat = []
-                for child_id in sorted(children_by_parent.get(parent_id, []), key=lambda cid: categories_by_id[cid]['name'].lower()):
-                    c = categories_by_id[child_id]
-                    flat.append(
-                        {
-                            'id': c['id'],
-                            'name': c['name'],
-                            'depth': depth,
-                            'is_selectable': c['parent'] != 0,
-                        }
+            moodle_categories = []
+            try:
+                moodle = connections['moodle']
+                with moodle.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT id, name, parent
+                        FROM mdl_question_categories
+                        ORDER BY name
+                        """
                     )
-                    flat.extend(_flatten(child_id, depth + 1))
-                return flat
+                    rows = cursor.fetchall()
 
-            moodle_categories = _flatten(0, 0)
+                categories_by_id = {r[0]: {'id': r[0], 'name': r[1], 'parent': r[2]} for r in rows}
+                children_by_parent = {}
+                for r in rows:
+                    cat_id, _name, parent_id = r
+                    children_by_parent.setdefault(parent_id, []).append(cat_id)
+
+                def _flatten(parent_id, depth):
+                    flat = []
+                    for child_id in sorted(children_by_parent.get(parent_id, []), key=lambda cid: categories_by_id[cid]['name'].lower()):
+                        c = categories_by_id[child_id]
+                        flat.append(
+                            {
+                                'id': c['id'],
+                                'name': c['name'],
+                                'depth': depth,
+                                'is_selectable': c['parent'] != 0,
+                            }
+                        )
+                        flat.extend(_flatten(child_id, depth + 1))
+                    return flat
+
+                moodle_categories = _flatten(0, 0)
+            except Exception as e:
+                # Moodle connection failed - log but continue with empty categories
+                print(f"WARNING: Moodle connection failed: {e}")
+                moodle_categories = []
 
             return render(
                 request,
