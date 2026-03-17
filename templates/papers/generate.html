@@ -19,14 +19,14 @@
             <label class="form-label-dark">Course (TRMS) *</label>
             <select id="courseSelect" class="form-control-dark" required>
               <option value="">— Select Course —</option>
-              {% for c in trms_courses %}<option value="{{ c.0 }}">{{ c.1 }}</option>{% endfor %}
+              {% for c in trms_courses %}<option value="{{ c.0 }}" {% if selected_cs_id == c.0|stringformat:"s" %}selected{% endif %}>{{ c.1 }}</option>{% endfor %}
             </select>
           </div>
           <div>
             <label class="form-label-dark">Exam (TRMS)</label>
             <select id="examSelect" class="form-control-dark">
               <option value="">— Select Exam —</option>
-              {% for e in trms_exams %}<option value="{{ e.id }}" data-subject-id="{{ e.subject_id }}" data-total="{{ e.total_marks }}" data-min="{{ e.min_marks }}" data-weight="{{ e.weightage }}">{{ e.subject_name }} (Exam #{{ e.id }})</option>{% endfor %}
+              {% for e in trms_exams %}<option value="{{ e.id }}" data-subject-id="{{ e.subject_id }}" data-total="{{ e.total_marks }}" data-min="{{ e.min_marks }}" data-weight="{{ e.weightage }}" {% if selected_exam_id == e.id|stringformat:"s" %}selected{% endif %}>{{ e.subject_name }} (Exam #{{ e.id }})</option>{% endfor %}
             </select>
             <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Change course to load its exams.</div>
           </div>
@@ -403,6 +403,20 @@ $(document).ready(function() {
     placeholder: '— Select Exam —',
     allowClear: true
   });
+  
+  // Pre-select values if they exist (from URL params)
+  {% if selected_cs_id %}
+  $('#courseSelect').val('{{ selected_cs_id }}').trigger('change');
+  console.log('Pre-selected course: {{ selected_cs_id }}');
+  {% endif %}
+  
+  {% if selected_exam_id %}
+  // Wait a bit for exam dropdown to populate via AJAX
+  setTimeout(function() {
+    $('#examSelect').val('{{ selected_exam_id }}').trigger('change');
+    console.log('Pre-selected exam: {{ selected_exam_id }}');
+  }, 500);
+  {% endif %}
   
   // Initialize other dropdowns
   $('#category').select2({

@@ -39,20 +39,17 @@ def blueprint_design_list(request):
         cursor.execute(
             """
             SELECT 
-              bp.cs_id AS course_id,
-              CASE 
-                WHEN s.subject_name = 'Miscellaneous' THEN 'Transportation & Air Brake (परिवहन एवं एयर ब्रेक)'
-                WHEN s.subject_name = 'Engineering' THEN 'C&w (air Brake )'
-                ELSE s.subject_name
-              END AS course_name,
-              bp.exam_id AS exam_id,
-              bp.subject_id AS subject_id,
-              s.subject_name AS subject_name
-            FROM zrtiudp.cbt_blue_prints bp
-            JOIN zrtiudp.subjects s ON s.id = bp.subject_id
-            WHERE bp.status = 1
-            GROUP BY bp.cs_id, bp.exam_id, bp.subject_id, s.subject_name
-            ORDER BY course_name ASC, bp.exam_id ASC
+                cb.cs_id AS course_id,
+                c.course_name AS course_name,
+                cb.exam_id AS exam_id,
+                cb.subject_id AS subject_id,
+                s.subject_name AS subject_name
+            FROM cbt_blue_prints cb
+            LEFT JOIN courses c ON cb.cs_id = c.id
+            LEFT JOIN subjects s ON s.id = cb.subject_id
+            WHERE cb.status = 1
+            GROUP BY cb.cs_id, cb.exam_id, cb.subject_id, c.course_name, s.subject_name
+            ORDER BY c.course_name ASC, cb.exam_id ASC
             """,
         )
 

@@ -39,7 +39,7 @@
               {% if r.exam_id %}
               <a class="btn-ghost"
                  style="padding:8px 14px;min-width:86px;justify-content:center;"
-                 href="{% url 'generate_paper' %}?cs_id={{ r.course_id }}&exam_id={{ r.exam_id }}&subject_id={{ r.subject_id }}">
+                 href="{% url 'generate_paper' %}?trms=1&cs_id={{ r.course_id }}&exam_id={{ r.exam_id }}&subject_id={{ r.subject_id }}">
                 <i class="bi bi-eye"></i> View
               </a>
               {% else %}
