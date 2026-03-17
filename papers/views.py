@@ -46,6 +46,7 @@ class GeneratePaperView(View):
             trms_courses = []
             trms_exams = []
             exam_meta = None
+            moodle_categories = []
 
             with connections['trms'].cursor() as cursor:
                 cursor.execute(
@@ -118,6 +119,40 @@ class GeneratePaperView(View):
                             'weight': row[2],
                         }
 
+            moodle = connections['moodle']
+            with moodle.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, name, parent
+                    FROM mdl_question_categories
+                    ORDER BY name
+                    """
+                )
+                rows = cursor.fetchall()
+
+            categories_by_id = {r[0]: {'id': r[0], 'name': r[1], 'parent': r[2]} for r in rows}
+            children_by_parent = {}
+            for r in rows:
+                cat_id, _name, parent_id = r
+                children_by_parent.setdefault(parent_id, []).append(cat_id)
+
+            def _flatten(parent_id, depth):
+                flat = []
+                for child_id in sorted(children_by_parent.get(parent_id, []), key=lambda cid: categories_by_id[cid]['name'].lower()):
+                    c = categories_by_id[child_id]
+                    flat.append(
+                        {
+                            'id': c['id'],
+                            'name': c['name'],
+                            'depth': depth,
+                            'is_selectable': c['parent'] != 0,
+                        }
+                    )
+                    flat.extend(_flatten(child_id, depth + 1))
+                return flat
+
+            moodle_categories = _flatten(0, 0)
+
             return render(
                 request,
                 self.template_name,
@@ -130,6 +165,7 @@ class GeneratePaperView(View):
                     'selected_exam_id': exam_id,
                     'selected_subject_id': subject_id,
                     'exam_meta': exam_meta,
+                    'moodle_categories': moodle_categories,
                     'courses': Course.objects.filter(is_active=True).order_by('course_code'),
                 }
             )
@@ -460,3 +496,74 @@ def export_paper_txt(request, paper_id):
     response = HttpResponse(content, content_type='text/plain')
     response['Content-Disposition'] = f'attachment; filename="ExamPaper_{paper.paper_id}.txt"'
     return response
+
+
+from django.views.decorators.csrf import csrf_exempt
+from datetime import datetime
+
+
+@csrf_exempt
+def save_blueprint(request):
+    if request.method != "POST":
+        return JsonResponse({"success": False, "error": "Invalid request"})
+
+    try:
+        data = json.loads(request.body)
+        
+        # Debug: Log received data
+        print(f"DEBUG save_blueprint: received data: {data}")
+
+        cs_id = data.get("cs_id")
+        exam_id = data.get("exam_id")
+        subject_id = data.get("subject_id")
+        rows = data.get("rows", [])
+        
+        # Debug: Log parsed values
+        print(f"DEBUG: cs_id={cs_id}, exam_id={exam_id}, subject_id={subject_id}, rows={rows}")
+
+        if not cs_id or not exam_id or not rows:
+            return JsonResponse({"success": False, "error": "Missing data"})
+
+        now = datetime.now()
+        
+        # Debug: Check connection
+        print(f"DEBUG: Using connection 'trms': {connections['trms']}")
+
+        with connections['trms'].cursor() as cursor:
+            # Delete old entries
+            cursor.execute("""
+                DELETE FROM zrtiudp.cbt_blue_prints
+                WHERE cs_id=%s AND exam_id=%s AND subject_id=%s
+            """, [cs_id, exam_id, subject_id])
+            print(f"DEBUG: Deleted existing rows for cs_id={cs_id}, exam_id={exam_id}")
+            
+            # Insert new rows
+            for r in rows:
+                print(f"DEBUG: Inserting row: {r}")
+                cursor.execute("""
+                    INSERT INTO zrtiudp.cbt_blue_prints
+                    (cs_id, exam_id, subject_id, mdl_cat_id, tag, ques, status, created_at, updated_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,1,%s,%s)
+                """, [
+                    cs_id,
+                    exam_id,
+                    subject_id,
+                    r.get("category_id"),
+                    r["tag"],
+                    r["ques"],
+                    now,
+                    now
+                ])
+                print(f"DEBUG: Row inserted successfully")
+            
+            # CRITICAL: Commit the transaction for raw SQL
+            connections['trms'].commit()
+            print(f"DEBUG: Transaction committed")
+
+        return JsonResponse({"success": True})
+
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR in save_blueprint: {str(e)}\n{error_trace}")
+        return JsonResponse({"success": False, "error": str(e)})
