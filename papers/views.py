@@ -272,6 +272,59 @@ def get_question_stats(request, course_id):
     })
 
 
+@login_required
+def get_trms_exams(request, cs_id):
+    """AJAX: Get TRMS exams for a course"""
+    try:
+        trms_exams = []
+        
+        with connections['trms'].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    ed.id,
+                    ed.cs_id,
+                    ed.subject_id,
+                    ed.type_sort,
+                    s.subject_name,
+                    s.subject_type,
+                    s.total_mark,
+                    s.mark,
+                    s.weightage
+                FROM zrtiudp.exam_design ed
+                JOIN zrtiudp.subjects s ON s.id = ed.subject_id
+                WHERE ed.cs_id = %s
+                AND ed.status = 1
+                AND s.subject_type IN (2,3)
+                AND s.status = 1
+                ORDER BY s.subject_name ASC, ed.id ASC
+                """,
+                [cs_id]
+            )
+
+            rows = cursor.fetchall()
+            trms_exams = [
+                {
+                    'id': r[0],
+                    'cs_id': r[1],
+                    'subject_id': r[2],
+                    'exam_type': r[3],
+                    'subject_name': r[4],
+                    'subject_type': r[5],
+                    'total_marks': r[6],
+                    'min_marks': r[7],
+                    'weightage': r[8],
+                }
+                for r in rows
+            ]
+        
+        return JsonResponse({"exams": trms_exams})
+        
+    except Exception as e:
+        print(f"Error loading TRMS exams: {e}")
+        return JsonResponse({"exams": [], "error": str(e)})
+
+
 @method_decorator(login_required, name='dispatch')
 class PaperGroupPreviewView(View):
     template_name = 'papers/paper_group_preview.html'

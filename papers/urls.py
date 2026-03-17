@@ -10,5 +10,6 @@ urlpatterns = [
     path('push/<int:paper_id>/to-moodle-quiz/', views.push_paper_to_moodle_quiz, name='push_paper_to_moodle_quiz'),
     path('api/quizzes/<int:course_id>/', views.get_quizzes_for_course, name='api_quizzes'),
     path('api/stats/<int:course_id>/', views.get_question_stats, name='api_question_stats'),
+    path('api/exams/<int:cs_id>/', views.get_trms_exams, name='api_trms_exams'),
     path('api/save-blueprint/', views.save_blueprint, name='save_blueprint'),
 ]
