@@ -12,7 +12,7 @@ class CourseAdmin(admin.ModelAdmin):
 
 @admin.register(Quiz)
 class QuizAdmin(admin.ModelAdmin):
-    list_display = ['quiz_name', 'course', 'total_questions', 'duration_minutes', 'is_active', 'question_count']
+    list_display = ['title', 'course', 'total_questions', 'duration_minutes', 'is_active', 'question_count']
     list_filter = ['is_active', 'course__department']
-    search_fields = ['quiz_name', 'course__course_code']
+    search_fields = ['title', 'course__course_code']
     raw_id_fields = ['course']

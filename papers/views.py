@@ -474,7 +474,7 @@ class GeneratedPapersListView(View):
     def get(self, request):
         papers = GeneratedPaper.objects.filter(
             faculty=request.user
-        ).select_related('course', 'quiz').order_by('-generated_at')
+        ).select_related('course').order_by('-generated_at')
         
         # Group by paper_group_id
         groups = {}

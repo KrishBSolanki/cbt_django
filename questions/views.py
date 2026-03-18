@@ -77,18 +77,6 @@ class CategoryListView(View):
             q_count=Count('questions')
         ).order_by('name')
 
-        easy_cats = []
-        medium_cats = []
-        hard_cats = []
-
-        for cat in categories:
-            easy = cat.questions.filter(difficulty='easy', is_active=True).count()
-            medium = cat.questions.filter(difficulty='medium', is_active=True).count()
-            hard = cat.questions.filter(difficulty='hard', is_active=True).count()
-            cat.easy_count = easy
-            cat.medium_count = medium
-            cat.hard_count = hard
-
         context = {
             'categories': categories,
             'active_page': 'questions',

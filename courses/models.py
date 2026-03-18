@@ -63,25 +63,22 @@ class Quiz(models.Model):
     Table: dj_quizzes
     """
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='quizzes')
-    quiz_name = models.CharField(max_length=255, db_column='title')
+    title = models.CharField(max_length=255, db_column='name')
     description = models.TextField()
     moodle_quiz_id = models.BigIntegerField(null=True, blank=True)
     total_questions = models.PositiveIntegerField()
     duration_minutes = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
     class Meta:
         db_table = 'dj_quizzes'
         verbose_name = 'Quiz'
         verbose_name_plural = 'Quizzes'
-        ordering = ['quiz_name']
+        ordering = ['title']
         managed = False
 
     def __str__(self):
-        return f"{self.quiz_name} ({self.course.course_code})"
+        return f"{self.title} ({self.course.course_code})"
 
     @property
     def question_count(self):

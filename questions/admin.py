@@ -13,5 +13,5 @@ class QuestionAdmin(admin.ModelAdmin):
 
 @admin.register(QuestionCategory)
 class QuestionCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'difficulty', 'moodle_category_id']
+    list_display = ['name', 'moodle_category_id']
     search_fields = ['name']

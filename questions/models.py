@@ -13,10 +13,6 @@ class QuestionCategory(models.Model):
     """
     name = models.CharField(max_length=255)
     moodle_category_id = models.BigIntegerField(null=True, blank=True, unique=True)
-    difficulty = models.CharField(max_length=16)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'dj_question_category'
