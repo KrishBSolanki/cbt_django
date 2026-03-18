@@ -173,11 +173,11 @@ class GeneratePaperView(View):
                     'selected_subject_id': subject_id,
                     'exam_meta': exam_meta,
                     'moodle_categories': moodle_categories,
-                    'courses': Course.objects.filter(is_active=True).order_by('course_code'),
+                    'courses': Course.objects.filter(is_active=True).order_by('course_name'),
                 }
             )
 
-        courses = Course.objects.filter(is_active=True).order_by('course_code')
+        courses = Course.objects.filter(is_active=True).order_by('course_name')
         context = {
             'courses': courses,
             'active_page': 'generate',

@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/categories/<int:dept_id>/', views.api_categories, name='api_cats'),
     path('api/courses/<int:dept_id>/<int:cat_id>/', views.api_courses, name='api_courses'),
     path('api/subjects/<int:dept_id>/<int:cat_id>/<int:course_id>/', views.api_subjects, name='api_subjects'),
+    path('api/trms-exams/<int:cs_id>/', views.api_trms_exams, name='api_trms_exams'),
     path('api/blueprint/<int:dept_id>/<int:cat_id>/<int:course_id>/<int:subject_id>/', views.api_blueprint, name='api_blueprint'),
     path('api/blueprints/<int:dept_id>/', views.api_blueprints_list, name='api_blueprints_list'),
 ]

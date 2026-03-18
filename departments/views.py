@@ -165,26 +165,92 @@ class BlueprintGenerateView(View):
         depts = Department.objects.filter(is_active=True).order_by('name')
         engg_dept = Department.objects.filter(code='ENGG', is_active=True).first()
         cs_id = request.GET.get('cs_id')
+        selected_cs_id = request.GET.get('sel_course') or cs_id
+        selected_exam_id = request.GET.get('sel_subject')
         trms_exam_data = []
+        trms_courses = []
+        trms_exams = []
 
-        if cs_id:
+        # Always load TRMS courses
+        try:
+            with connections['trms'].cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT id, course_name
+                    FROM courses
+                    ORDER BY course_name ASC
+                    """
+                )
+                trms_courses = cursor.fetchall()
+                print(f"DEBUG: Loaded {len(trms_courses)} TRMS courses")
+        except Exception as e:
+            print(f"WARNING: TRMS courses loading failed: {e}")
+            trms_courses = []
+
+        # Load TRMS exams if a course is selected
+        if selected_cs_id:
             try:
                 with connections['trms'].cursor() as cursor:
                     cursor.execute(
                         """
-                        SELECT ed.id, ed.cs_id, ed.subject_id, ed.type_sort,
-                               s.subject_name, s.subject_type
+                        SELECT
+                            MIN(ed.id) as id,
+                            ed.cs_id,
+                            ed.subject_id,
+                            MIN(ed.type_sort) as type_sort,
+                            s.subject_name,
+                            s.subject_type,
+                            s.total_mark,
+                            s.mark,
+                            s.weightage,
+                            s.mcq,
+                            s.essay
                         FROM exam_design ed
                         JOIN subjects s ON s.id = ed.subject_id
                         WHERE ed.cs_id = %s
                         AND ed.status = 1
                         AND s.subject_type IN (2,3)
                         AND s.status = 1
+                        GROUP BY ed.cs_id, ed.subject_id, s.subject_name, s.subject_type, s.total_mark, s.mark, s.weightage, s.mcq, s.essay
+                        ORDER BY s.subject_name ASC, ed.id ASC
                         """,
-                        [cs_id]
+                        [selected_cs_id]
                     )
-
                     rows = cursor.fetchall()
+                    print(f"DEBUG: Loaded {len(rows)} TRMS exams for course {selected_cs_id}")
+
+                trms_exams = [
+                    {
+                        'id': r[0],
+                        'cs_id': r[1],
+                        'subject_id': r[2],
+                        'exam_type': r[3],
+                        'subject_name': r[4],
+                        'subject_type': r[5],
+                        'total_marks': r[6],
+                        'min_marks': r[7],
+                        'weightage': r[8],
+                        'mcq_count': r[9],
+                        'descriptive_count': r[10],
+                    }
+                    for r in rows
+                ]
+
+                # Also load exam design data for display
+                cursor.execute(
+                    """
+                    SELECT ed.id, ed.cs_id, ed.subject_id, ed.type_sort,
+                           s.subject_name, s.subject_type
+                    FROM exam_design ed
+                    JOIN subjects s ON s.id = ed.subject_id
+                    WHERE ed.cs_id = %s
+                    AND ed.status = 1
+                    AND s.subject_type IN (2,3)
+                    AND s.status = 1
+                    """,
+                    [selected_cs_id]
+                )
+                exam_rows = cursor.fetchall()
 
                 trms_exam_data = [
                     {
@@ -195,9 +261,11 @@ class BlueprintGenerateView(View):
                         'subject_name': r[4],
                         'subject_type': r[5],
                     }
-                    for r in rows
+                    for r in exam_rows
                 ]
-            except Exception:
+            except Exception as e:
+                print(f"WARNING: TRMS exams loading failed: {e}")
+                trms_exams = []
                 trms_exam_data = []
         # URL params allow arriving pre-filled from department detail page
         sel = {k: request.GET.get(k, '')
@@ -226,7 +294,16 @@ class BlueprintGenerateView(View):
             'sel_paper_type': sel_paper_type,
             'engg_dept_id': engg_dept.id if engg_dept else None,
             'trms_exam_data': trms_exam_data,
-            **{f'sel_{k}': v for k, v in sel.items()}})
+            'trms_courses': trms_courses,
+            'trms_exams': trms_exams,
+            'selected_cs_id': selected_cs_id,
+            'selected_exam_id': selected_exam_id,
+            'debug_info': {
+                'trms_courses_count': len(trms_courses),
+                'trms_exams_count': len(trms_exams),
+                'selected_cs_id': selected_cs_id,
+            }
+        })
 
     def post(self, request):
         d = request.POST
@@ -480,6 +557,61 @@ def api_subjects(request, dept_id, cat_id, course_id):
     # This allows creating new blueprints for any subject
     subjects = Subject.objects.filter(course_id=course_id, is_active=True).order_by('name')
     return JsonResponse({'subjects': [{'id': s.id, 'name': s.name} for s in subjects]})
+
+
+def api_trms_exams(request, cs_id):
+    """Load TRMS exams for a given course ID"""
+    try:
+        with connections['trms'].cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    MIN(ed.id) as id,
+                    ed.cs_id,
+                    ed.subject_id,
+                    MIN(ed.type_sort) as type_sort,
+                    s.subject_name,
+                    s.subject_type,
+                    s.total_mark,
+                    s.mark,
+                    s.weightage,
+                    s.mcq,
+                    s.essay
+                FROM exam_design ed
+                JOIN subjects s ON s.id = ed.subject_id
+                WHERE ed.cs_id = %s
+                AND ed.status = 1
+                AND s.subject_type IN (2,3)
+                AND s.status = 1
+                GROUP BY ed.cs_id, ed.subject_id, s.subject_name, s.subject_type, s.total_mark, s.mark, s.weightage, s.mcq, s.essay
+                ORDER BY s.subject_name ASC, ed.id ASC
+                """,
+                [cs_id]
+            )
+            rows = cursor.fetchall()
+            print(f"DEBUG: API loaded {len(rows)} TRMS exams for course {cs_id}")
+
+        exams = [
+            {
+                'id': r[0],
+                'cs_id': r[1],
+                'subject_id': r[2],
+                'exam_type': r[3],
+                'subject_name': r[4],
+                'subject_type': r[5],
+                'total_marks': r[6],
+                'min_marks': r[7],
+                'weightage': r[8],
+                'mcq_count': r[9],
+                'descriptive_count': r[10],
+            }
+            for r in rows
+        ]
+
+        return JsonResponse({'exams': exams})
+    except Exception as e:
+        print(f"ERROR: TRMS exams loading failed: {e}")
+        return JsonResponse({'exams': []})
 
 
 @login_required

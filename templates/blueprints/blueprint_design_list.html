@@ -11,7 +11,7 @@
         Courses and TRMS exam designs available for paper generation.
       </div>
     </div>
-    <a href="{% url 'generate_paper' %}?trms=1" class="btn-primary-custom">
+    <a href="/departments/generate/" class="btn-primary-custom">
       <i class="bi bi-plus-lg"></i> Create Blueprint
     </a>
   </div>
@@ -39,7 +39,7 @@
               {% if r.exam_id %}
               <a class="btn-ghost"
                  style="padding:8px 14px;min-width:86px;justify-content:center;"
-                 href="{% url 'generate_paper' %}?trms=1&cs_id={{ r.course_id }}&exam_id={{ r.exam_id }}&subject_id={{ r.subject_id }}">
+                 href="/departments/generate/?sel_dept={{ r.department_id }}&sel_cat={{ r.category_id }}&sel_course={{ r.course_id }}&sel_subject={{ r.subject_id }}">
                 <i class="bi bi-eye"></i> View
               </a>
               {% else %}

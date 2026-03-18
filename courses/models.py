@@ -11,8 +11,8 @@ class Course(models.Model):
     Course model synced from TRMS and Moodle
     Table: dj_courses
     """
-    course_code = models.CharField(max_length=50, unique=True, db_column='code')
-    course_name = models.CharField(max_length=255, db_column='name')
+    course_code = models.CharField(max_length=50, unique=True)
+    course_name = models.CharField(max_length=255)
     department = models.CharField(max_length=128)
     is_active = models.BooleanField(default=True)
 
@@ -30,7 +30,7 @@ class Course(models.Model):
         db_table = 'dj_courses'
         verbose_name = 'Course'
         verbose_name_plural = 'Courses'
-        ordering = ['course_code']
+        ordering = ['course_name']
         managed = False
 
     def __str__(self):

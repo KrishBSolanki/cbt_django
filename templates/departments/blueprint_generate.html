@@ -1,6 +1,12 @@
 {% extends 'base.html' %}
-{% block title %}Department Blueprint{% endblock %}
-{% block page_title %}Department Blueprint Paper Generator{% endblock %}
+{% block title %}Department Blueprint Generator{% endblock %}
+{% block page_title %}Department Blueprint Generator{% endblock %}
+
+{% block extra_css %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+{% endblock %}
 
 {% block content %}
 <div class="fade-in" x-data="blueprintWizard()" x-init="init()">
@@ -17,31 +23,130 @@
         <input type="hidden" name="blueprint_id" :value="bp.blueprint_id || ''">
         <input type="hidden" name="paper_type" x-model="paperType">
 
-        <!-- STEP 1: Department -->
+        <!-- STEP 1: Course/Exam (TRMS) -->
         <div class="card-glass" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
             <div style="width:28px;height:28px;background:linear-gradient(135deg,#4f8ef7,#6366f1);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">1</div>
-            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Department</div>
-            <span x-show="deptId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Course / Exam (TRMS)</div>
           </div>
-
-          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
-            {% for dept in departments %}
-            <button type="button" @click="selectDept({{ dept.id }}, '{{ dept.name }}', '{{ dept.code }}')"
-              :class="deptId == {{ dept.id }} ? 'ring-2 ring-blue-500 bg-blue-500/10' : 'hover:bg-white/5'"
-              style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;text-align:left;cursor:pointer;transition:all 0.2s;">
-              <div style="font-size:11px;font-weight:700;color:#4f8ef7;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">{{ dept.code }}</div>
-              <div style="font-size:14px;font-weight:600;color:#e2e8f0;margin-bottom:4px;">{{ dept.name }}</div>
-              <div style="font-size:11px;color:#64748b;">{{ dept.blueprint_count }} blueprints</div>
-            </button>
-            {% endfor %}
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+            <div>
+              <label class="form-label-dark">Course (TRMS) *</label>
+              <select id="courseSelect" class="form-control-dark" required>
+                <option value="">— Select Course —</option>
+                {% for c in trms_courses %}<option value="{{ c.0 }}" {% if selected_cs_id == c.0|stringformat:"s" %}selected{% endif %}>{{ c.1 }}</option>{% endfor %}
+              </select>
+            </div>
+            <div>
+              <label class="form-label-dark">Exam (TRMS)</label>
+              <select id="examSelect" class="form-control-dark">
+                <option value="">— Select Exam —</option>
+                {% for e in trms_exams %}<option value="{{ e.id }}" data-subject-id="{{ e.subject_id }}" data-total="{{ e.total_marks }}" data-mcq="{{ e.mcq_count }}" data-descriptive="{{ e.descriptive_count }}" {% if selected_exam_id == e.id|stringformat:"s" %}selected{% endif %}>{{ e.subject_name }} (Exam #{{ e.id }})</option>{% endfor %}
+              </select>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Change course to load its exams.</div>
+            </div>
+          </div>
+          
+          <div id="examMetaCard" class="card-glass" style="display:none;margin-top:12px;">
+            <div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:14px;display:flex;align-items:center;gap:6px;"><i class="bi bi-info-circle-fill"></i> TRMS Question Breakdown</div>
+            <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;text-align:center;">
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+                <div style="display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(124,92,191,0.14);border:1px solid rgba(124,92,191,0.28);font-size:11px;font-weight:700;color:#c4b5fd;margin-bottom:8px;">Total Marks</div>
+                <div id="totalMarks" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);"></div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+                <div style="display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(79,142,247,0.12);border:1px solid rgba(79,142,247,0.24);font-size:11px;font-weight:700;color:#93c5fd;margin-bottom:8px;">MCQ</div>
+                <div id="mcqCount" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);"></div>
+              </div>
+              <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:12px;">
+                <div style="display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(34,197,94,0.10);border:1px solid rgba(34,197,94,0.22);font-size:11px;font-weight:700;color:#22c55e;margin-bottom:8px;">Descriptive</div>
+                <div id="descriptiveCount" style="font-family:'Fraunces',serif;font-size:22px;font-weight:700;color:var(--text-primary);"></div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- STEP 2: Category (shown after dept selected) -->
-        <div x-show="step >= 2" x-transition class="card-glass" style="margin-bottom:16px;">
+        <!-- STEP 2: Quiz Type Builder -->
+        <div class="card-glass" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
             <div style="width:28px;height:28px;background:linear-gradient(135deg,#7c5cbf,#a855f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">2</div>
+            <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Quiz Type Builder</div>
+          </div>
+          
+          <div id="validationDisplay" style="margin-bottom:16px;"></div>
+          
+          <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end;">
+            <div>
+              <label class="form-label-dark">Category</label>
+              <select id="category" class="form-control-dark">
+                <option value="">Select Category</option>
+                {% for c in moodle_categories %}
+                <option value="{{ c.id }}" {% if not c.is_selectable %}disabled{% endif %}>
+                  {% if c.depth %}{% for _ in "0123456789"|slice:":c.depth" %}&nbsp;&nbsp;{% endfor %}{% endif %}{{ c.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label-dark">Type</label>
+              <select id="q_type" class="form-control-dark">
+                <option value="multichoice">MCQ</option>
+                <option value="essay">Descriptive</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label-dark">Tag</label>
+              <select id="tag" class="form-control-dark">
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="form-label-dark">Questions</label>
+              <input type="number" id="ques" class="form-control-dark">
+            </div>
+
+            <div>
+              <label class="form-label-dark">Marks Per Question</label>
+              <input type="number" id="marks" class="form-control-dark">
+            </div>
+
+            <div>
+              <label style="opacity:0;">Add</label>
+              <button type="button" onclick="addRow()" class="btn-primary-custom w-100">
+                Add
+              </button>
+            </div>
+          </div>
+          
+          <div style="margin-top:14px;overflow:auto;">
+            <table class="table" style="margin:0;color:var(--text-primary);">
+              <thead>
+                <tr>
+                  <th style="color:var(--text-muted);font-size:12px;font-weight:700;">Category</th>
+                  <th style="color:var(--text-muted);font-size:12px;font-weight:700;">Type</th>
+                  <th style="color:var(--text-muted);font-size:12px;font-weight:700;">Tag</th>
+                  <th style="color:var(--text-muted);font-size:12px;font-weight:700;">Questions</th>
+                  <th style="color:var(--text-muted);font-size:12px;font-weight:700;">Marks</th>
+                </tr>
+              </thead>
+              <tbody id="bpTable"></tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;">
+            Total Selected Questions: <b id="totalSelected">0</b>
+          </div>
+        </div>
+
+        <!-- STEP 3: Category (shown after dept selected) -->
+        <div x-show="step >= 2" x-transition class="card-glass" style="margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#7c5cbf,#a855f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">3</div>
             <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Exam Category</div>
             <span x-show="catId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
             <span x-show="loadCat" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
@@ -63,10 +168,10 @@
           </div>
         </div>
 
-        <!-- STEP 3: Course (shown after category selected) -->
+        <!-- STEP 4: Course (shown after category selected) -->
         <div x-show="step >= 3" x-transition class="card-glass" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-            <div style="width:28px;height:28px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">3</div>
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#f59e0b,#d97706);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">4</div>
             <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Course</div>
             <span x-show="courseId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
             <span x-show="loadCourse" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
@@ -89,10 +194,10 @@
           </div>
         </div>
 
-        <!-- STEP 4: Type of Paper (Engineering only) -->
+        <!-- STEP 5: Type of Paper (Engineering only) -->
         <div x-show="step >= 4 && isEngg" x-transition class="card-glass" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-            <div style="width:28px;height:28px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">4</div>
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#06b6d4,#0ea5e9);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">5</div>
             <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Type of Paper</div>
             <span x-show="paperType" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
           </div>
@@ -108,10 +213,10 @@
           </div>
         </div>
 
-        <!-- STEP 5: Subject (shown after paper type selected OR course selected for non-Engineering) -->
+        <!-- STEP 6: Subject (shown after paper type selected OR course selected for non-Engineering) -->
         <div x-show="(step >= 5 && isEngg) || (step >= 4 && !isEngg)" x-transition class="card-glass" style="margin-bottom:16px;">
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-            <div style="width:28px;height:28px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;" x-text="isEngg ? '5' : '4'"></div>
+            <div style="width:28px;height:28px;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;" x-text="isEngg ? '6' : '5'"></div>
             <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Select Subject</div>
             <span x-show="subjectId" style="margin-left:auto;color:#22c55e;font-size:13px;"><i class="bi bi-check-circle-fill"></i> Selected</span>
             <span x-show="loadSubject" style="margin-left:auto;font-size:12px;color:#64748b;"><i class="bi bi-arrow-clockwise" style="animation:spin 1s linear infinite;"></i></span>
@@ -166,11 +271,11 @@
         </div>
         {% endif %}
 
-        <!-- STEP 6: Blueprint & Generate (shown after subject selected) -->
+        <!-- STEP 7: Blueprint & Generate (shown after subject selected) -->
         <div x-show="(step >= 6 && isEngg) || (step >= 5 && !isEngg)" x-transition>
           <div x-show="bp.found" class="card-glass" style="margin-bottom:16px;">
             <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-              <div style="width:28px;height:28px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">5</div>
+              <div style="width:28px;height:28px;background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:white;flex-shrink:0;">6</div>
               <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Exam Blueprint</div>
               <span class="pill" style="margin-left:auto;background:rgba(34,197,94,0.1);color:#22c55e;border:1px solid rgba(34,197,94,0.2);font-size:10px;padding:3px 10px;border-radius:20px;">
                 <i class="bi bi-check-lg" style="margin-right:4px;"></i>AUTO-CONFIGURED
@@ -259,13 +364,13 @@
             <a :href="`/departments/create/?dept=${deptId}&cat=${catId}&course=${courseId}&subject=${subjectId}`" 
                class="btn-primary-custom" 
                style="display:inline-flex;"
-               x-show="deptId && catId && courseId && subjectId">
+               x-show="false">
               <i class="bi bi-plus-lg"></i> Create Blueprint
             </a>
             <a href="{% url 'blueprint_create' %}" 
                class="btn-primary-custom" 
                style="display:inline-flex;"
-               x-show="!deptId || !catId || !courseId || !subjectId">
+               x-show="false">
               <i class="bi bi-plus-lg"></i> Create New Blueprint
             </a>
           </div>
@@ -281,39 +386,6 @@
     <!-- Right panel -->
     <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:16px;">
       
-      <!-- Selection Summary -->
-      <div class="card-glass">
-        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
-          Your Selection
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
-            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
-              <i class="bi bi-building" style="color:#4f8ef7;"></i> Department
-            </span>
-            <span style="color:#e2e8f0;font-weight:600;" x-text="deptName || '—'">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
-            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
-              <i class="bi bi-layers" style="color:#a78bfa;"></i> Category
-            </span>
-            <span style="color:#e2e8f0;font-weight:600;" x-text="catName || '—'">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
-            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
-              <i class="bi bi-book" style="color:#f59e0b;"></i> Course
-            </span>
-            <span style="color:#e2e8f0;font-weight:600;" x-text="courseCode || '—'">—</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:13px;align-items:center;">
-            <span style="color:#64748b;display:flex;align-items:center;gap:6px;">
-              <i class="bi bi-journal-text" style="color:#22c55e;"></i> Subject
-            </span>
-            <span style="color:#e2e8f0;font-weight:600;" x-text="subjectName || '—'">—</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Paper Preview -->
       <div class="card-glass" x-show="bp.found" x-transition>
         <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
@@ -349,43 +421,280 @@
         </div>
       </div>
 
-      <!-- How It Works -->
-      <div style="background:rgba(124,92,191,0.08);border:1px solid rgba(124,92,191,0.2);border-radius:12px;padding:16px;">
-        <div style="font-size:12px;font-weight:700;color:#c4b5fd;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-          <i class="bi bi-lightbulb-fill"></i> How Blueprint Works
-        </div>
-        <div style="font-size:12px;color:#94a3b8;line-height:1.8;">
-          The blueprint auto-configures:<br>
-          • MCQ count & marks<br>
-          • Descriptive count & marks<br>
-          • Total paper marks<br>
-          No manual sliders needed!
-        </div>
-      </div>
-
-      <!-- Quick Actions -->
-      <div class="card-glass">
-        <div style="font-family:'Fraunces',serif;font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:16px;">
-          <i class="bi bi-bolt" style="color:#f59e0b;margin-right:8px;"></i>Quick Actions
-        </div>
-        <a href="{% url 'blueprint_create' %}" class="btn-primary-custom" style="width:100%;justify-content:center;margin-bottom:10px;">
-          <i class="bi bi-plus-lg"></i> Create New Blueprint
-        </a>
-        <a href="{% url 'blueprint_history' %}" class="btn-ghost" style="width:100%;justify-content:center;">
-          <i class="bi bi-clock-history"></i> View History
-        </a>
-      </div>
-
     </div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <style>
   @keyframes spin { to { transform: rotate(360deg); } }
+  
+  /* Custom Select2 styling for dark theme */
+  .select2-container .select2-selection {
+    background-color: rgba(30, 41, 59, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #f1f5f9 !important;
+    min-height: 38px !important;
+  }
+  
+  .select2-container .select2-selection--single .select2-selection__rendered {
+    color: #f1f5f9 !important;
+    padding: 6px 12px !important;
+    line-height: 1.4 !important;
+  }
+  
+  .select2-container .select2-selection--single .select2-selection__placeholder {
+    color: #94a3b8 !important;
+  }
+  
+  .select2-container .select2-selection--single .select2-selection__arrow {
+    color: #94a3b8 !important;
+  }
+  
+  .select2-dropdown {
+    background-color: #1e293b !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3) !important;
+  }
+  
+  .select2-results__option {
+    color: #f1f5f9 !important;
+    padding: 8px 12px !important;
+    background-color: transparent !important;
+  }
+  
+  .select2-results__option--highlighted {
+    background-color: #4f46e5 !important;
+    color: white !important;
+  }
+  
+  .select2-results__option--selected {
+    background-color: #3730a3 !important;
+    color: white !important;
+  }
+  
+  .select2-search--dropdown .select2-search__field {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: #f1f5f9 !important;
+    padding: 6px 12px !important;
+  }
+  
+  .select2-search--dropdown .select2-search__field::placeholder {
+    color: #94a3b8 !important;
+  }
+  
+  /* Fix for selected text display */
+  .select2-container--default .select2-selection--single .select2-selection__rendered {
+    color: #f1f5f9 !important;
+  }
+  
+  /* Fix for dropdown arrow */
+  .select2-container--default .select2-selection--single .select2-selection__arrow b {
+    border-color: #94a3b8 transparent transparent transparent !important;
+  }
 </style>
 <script>
+// Blueprint rows for Quiz Type Builder
+let blueprintRows = [];
+
+function calculateTotal() {
+  const total = blueprintRows.reduce((sum, r) => sum + (r.ques || 0), 0);
+  const el = document.getElementById("totalSelected");
+  if (el) el.innerText = total;
+}
+
+function updateValidationDisplay() {
+  // This function now calls the real-time validation for consistency
+  updateRealTimeValidation();
+}
+
+// Initialize Select2 dropdowns
+function initializeSelect2() {
+  // Initialize all select elements with Select2
+  $('select').select2({
+    width: '100%'
+  });
+  
+  // Custom styling for specific dropdowns
+  $('#courseSelect').select2('destroy').select2({
+    width: '100%',
+    placeholder: '— Select Course —',
+    allowClear: true
+  });
+  
+  $('#examSelect').select2('destroy').select2({
+    width: '100%',
+    placeholder: '— Select Exam —',
+    allowClear: true
+  });
+  
+  $('#category').select2('destroy').select2({
+    width: '100%',
+    placeholder: 'Select Category',
+    allowClear: true
+  });
+  
+  $('#q_type').select2('destroy').select2({
+    width: '100%',
+    minimumResultsForSearch: -1
+  });
+  
+  $('#tag').select2('destroy').select2({
+    width: '100%',
+    minimumResultsForSearch: -1
+  });
+}
+
+// Initialize Select2 when document is ready
+$(document).ready(function() {
+  initializeSelect2();
+  
+  // Add real-time validation for questions input
+  const quesInput = document.getElementById('ques');
+  const qTypeSelect = document.getElementById('q_type');
+  
+  if (quesInput && qTypeSelect) {
+    // Real-time validation on input
+    quesInput.addEventListener('input', function() {
+      updateRealTimeValidation();
+    });
+    
+    // Real-time validation on type change
+    qTypeSelect.addEventListener('change', function() {
+      updateRealTimeValidation();
+    });
+  }
+});
+
+function updateRealTimeValidation() {
+  // Get TRMS exam limits
+  const examSelect = document.getElementById('examSelect');
+  const selectedExam = examSelect.options[examSelect.selectedIndex];
+  const maxMcq = parseInt(selectedExam.getAttribute('data-mcq')) || 0;
+  const maxDescriptive = parseInt(selectedExam.getAttribute('data-descriptive')) || 0;
+
+  // Calculate current totals by question type
+  const currentMcqTotal = blueprintRows
+    .filter(r => r.type === 'MCQ')
+    .reduce((sum, r) => sum + (r.ques || 0), 0);
+  
+  const currentDescriptiveTotal = blueprintRows
+    .filter(r => r.type === 'Descriptive')
+    .reduce((sum, r) => sum + (r.ques || 0), 0);
+
+  // Get current input values
+  const qType = document.getElementById('q_type').value;
+  const newQuestions = parseInt(document.getElementById('ques').value) || 0;
+
+  // Calculate projected totals
+  const projectedMcq = qType === 'MCQ' ? currentMcqTotal + newQuestions : currentMcqTotal;
+  const projectedDescriptive = qType === 'Descriptive' ? currentDescriptiveTotal + newQuestions : currentDescriptiveTotal;
+
+  // Update validation display with real-time feedback
+  const validationDisplay = document.getElementById('validationDisplay');
+  if (validationDisplay) {
+    const mcqStatus = projectedMcq > maxMcq ? '⚠️' : '✅';
+    const descriptiveStatus = projectedDescriptive > maxDescriptive ? '⚠️' : '✅';
+    
+    const mcqColor = projectedMcq > maxMcq ? '#ef4444' : '#10b981';
+    const descriptiveColor = projectedDescriptive > maxDescriptive ? '#ef4444' : '#10b981';
+    
+    validationDisplay.innerHTML = `
+      <div style="font-size:12px;margin-top:8px;">
+        <div style="color: ${mcqColor};">
+          MCQ: ${currentMcqTotal} / ${maxMcq} → ${projectedMcq} ${mcqStatus}
+          ${projectedMcq > maxMcq ? `<span style="font-size:11px;">(Exceeds by ${projectedMcq - maxMcq})</span>` : ''}
+        </div>
+        <div style="color: ${descriptiveColor};">
+          Descriptive: ${currentDescriptiveTotal} / ${maxDescriptive} → ${projectedDescriptive} ${descriptiveStatus}
+          ${projectedDescriptive > maxDescriptive ? `<span style="font-size:11px;">(Exceeds by ${projectedDescriptive - maxDescriptive})</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+}
+
+window.addRow = function () {
+  const category = document.getElementById('category');
+  const category_id = category.value;
+  const category_name = category.options[category.selectedIndex].text;
+
+  const type = document.getElementById('q_type').value;
+  const tag = document.getElementById('tag').value;
+  const ques = document.getElementById('ques').value;
+  const marks = document.getElementById('marks').value;
+
+  if (!category_id || !ques) {
+    alert("Fill all fields");
+    return;
+  }
+
+  // Get TRMS exam limits
+  const examSelect = document.getElementById('examSelect');
+  const selectedExam = examSelect.options[examSelect.selectedIndex];
+  const maxMcq = parseInt(selectedExam.getAttribute('data-mcq')) || 0;
+  const maxDescriptive = parseInt(selectedExam.getAttribute('data-descriptive')) || 0;
+
+  // Calculate current totals by question type
+  const currentMcqTotal = blueprintRows
+    .filter(r => r.type === 'MCQ')
+    .reduce((sum, r) => sum + (r.ques || 0), 0);
+  
+  const currentDescriptiveTotal = blueprintRows
+    .filter(r => r.type === 'Descriptive')
+    .reduce((sum, r) => sum + (r.ques || 0), 0);
+
+  // Validate against TRMS limits
+  const newQuestions = parseInt(ques);
+  
+  if (type === 'MCQ') {
+    if (currentMcqTotal + newQuestions > maxMcq) {
+      alert(`Cannot add ${newQuestions} MCQ questions. Current: ${currentMcqTotal}, Maximum allowed: ${maxMcq}`);
+      return;
+    }
+  } else if (type === 'Descriptive') {
+    if (currentDescriptiveTotal + newQuestions > maxDescriptive) {
+      alert(`Cannot add ${newQuestions} Descriptive questions. Current: ${currentDescriptiveTotal}, Maximum allowed: ${maxDescriptive}`);
+      return;
+    }
+  }
+
+  const row = {
+    category_id,
+    category_name,
+    type,
+    tag,
+    ques: parseInt(ques),
+    marks: parseFloat(marks || 0)
+  };
+
+  blueprintRows.push(row);
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${category_name}</td>
+    <td>${type}</td>
+    <td>${tag}</td>
+    <td>${ques}</td>
+    <td>${marks}</td>
+  `;
+
+  document.getElementById('bpTable').appendChild(tr);
+  calculateTotal();
+  
+  // Update real-time validation display
+  updateRealTimeValidation();
+};
+
+function getCSRFToken() {
+  return document.querySelector('[name=csrfmiddlewaretoken]').value;
+}
+
 function blueprintWizard() {
   return {
     step: 1,
@@ -417,6 +726,9 @@ function blueprintWizard() {
     },
 
     async init() {
+      // Initialize TRMS course/exam functionality
+      this.initTRMS();
+      
       if (this.deptId) {
         this.step = 2;
         // Find department name from the rendered list
@@ -458,6 +770,208 @@ function blueprintWizard() {
       if (this.subjectId) {
         this.step = this.isEngg ? 6 : 5;
         await this.fetchBp();
+      }
+    },
+
+    initTRMS() {
+      // Initialize TRMS course/exam dropdowns
+      const courseSelect = document.getElementById('courseSelect');
+      const examSelect = document.getElementById('examSelect');
+      
+      if (courseSelect && examSelect) {
+        // Use Select2's change event instead of native change event
+        $(courseSelect).on('change', function() {
+          const csId = $(this).val();
+          console.log('Loading exams for course:', csId);
+          if (!csId || csId === '') {
+            examSelect.innerHTML = '<option value="">— Select Exam —</option>';
+            $('#examSelect').select2('destroy').select2({
+              width: '100%',
+              placeholder: '— Select Exam —',
+              allowClear: true
+            });
+            return;
+          }
+          
+          // Clear exam dropdown and show loading
+          examSelect.innerHTML = '<option value="">Loading exams...</option>';
+          
+          // Load exams via AJAX
+          fetch(`/departments/api/trms-exams/${csId}/`)
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(data => {
+              console.log('API response:', data);
+              examSelect.innerHTML = '<option value="">— Select Exam —</option>';
+              
+              if (data.exams && data.exams.length > 0) {
+                console.log(`Found ${data.exams.length} exams`);
+                data.exams.forEach(exam => {
+                  const option = `<option value="${exam.id}" data-subject-id="${exam.subject_id}" data-total="${exam.total_marks}" data-mcq="${exam.mcq_count}" data-descriptive="${exam.descriptive_count}">${exam.subject_name} (Exam #${exam.id})</option>`;
+                  examSelect.innerHTML += option;
+                });
+                
+                // Reinitialize Select2 for exam dropdown after adding options
+                $('#examSelect').select2('destroy').select2({
+                  width: '100%',
+                  placeholder: '— Select Exam —',
+                  allowClear: true
+                });
+                
+                // Trigger change event to load exam meta for first exam if needed
+                if (data.exams.length === 1) {
+                  // If only one exam, select it automatically
+                  $('#examSelect').val(data.exams[0].id).trigger('change');
+                }
+              } else {
+                console.log('No exams found for this course');
+                examSelect.innerHTML = '<option value="">No exams available</option>';
+                $('#examSelect').select2('destroy').select2({
+                  width: '100%',
+                  placeholder: 'No exams available',
+                  allowClear: false
+                });
+              }
+              examSelect.dispatchEvent(new Event('change'));
+            })
+            .catch(error => {
+              console.error('Failed to load exams:', error);
+              examSelect.innerHTML = '<option value="">Error loading exams</option>';
+              $('#examSelect').select2('destroy').select2({
+                width: '100%',
+                placeholder: 'Error loading exams',
+                allowClear: false
+              });
+            });
+        });
+        
+        // Use Select2's change event for exam selection
+        $(examSelect).on('change', function() {
+          console.log('=== EXAM CHANGE EVENT TRIGGERED ===');
+          const selectedOption = $(this).find('option:selected')[0];
+          console.log('Selected option element:', selectedOption);
+          
+          const card = document.getElementById('examMetaCard');
+          console.log('examMetaCard element found:', !!card);
+          
+          if (!card) {
+            console.error('examMetaCard element not found!');
+            return;
+          }
+          
+          if (selectedOption && selectedOption.value && selectedOption.value !== '') {
+            console.log('Loading exam meta for exam ID:', selectedOption.value);
+            
+            const total = selectedOption.getAttribute('data-total');
+            const mcq = selectedOption.getAttribute('data-mcq');
+            const descriptive = selectedOption.getAttribute('data-descriptive');
+            
+            console.log('Exam data extracted:', { total, mcq, descriptive });
+            
+            const totalEl = document.getElementById('totalMarks');
+            const mcqEl = document.getElementById('mcqCount');
+            const descriptiveEl = document.getElementById('descriptiveCount');
+            
+            if (totalEl && mcqEl && descriptiveEl) {
+              totalEl.innerText = total || '0'; 
+              mcqEl.innerText = mcq || '0'; 
+              descriptiveEl.innerText = descriptive || '0'; 
+              
+              // Show the card with proper styling
+              card.style.display = 'block';
+              card.style.visibility = 'visible';
+              card.style.opacity = '1';
+              card.style.height = 'auto';
+              card.style.overflow = 'visible';
+              
+              // Reset any debugging styles
+              card.style.backgroundColor = '';
+              card.style.border = '';
+              
+              console.log('Exam meta card displayed with data:', { total, mcq, descriptive });
+              
+              // Update validation display when exam is selected
+              updateValidationDisplay();
+              
+            } else {
+              console.error('Meta display elements not found:', { totalEl: !!totalEl, mcqEl: !!mcqEl, descriptiveEl: !!descriptiveEl });
+            }
+          } else {
+            console.log('No exam selected, hiding meta card');
+            card.style.display = 'none';
+          }
+        });
+        
+        // Load exam meta on page load if exam is pre-selected
+        if (examSelect.value) {
+          const selected = examSelect.options[examSelect.selectedIndex];
+          this.loadExamMeta(selected);
+        }
+      }
+    },
+
+    loadExamMeta(option) {
+      console.log('loadExamMeta called with option:', option);
+      
+      // First, let's check if the exam meta card exists
+      const card = document.getElementById('examMetaCard');
+      console.log('examMetaCard element found:', !!card);
+      if (card) {
+        console.log('examMetaCard current display style:', card.style.display);
+        console.log('examMetaCard current visibility:', window.getComputedStyle(card).display);
+      }
+      
+      if (!option || !option.value) {
+        console.log('No valid option provided');
+        if (card) card.style.display = 'none';
+        return;
+      }
+      
+      const total = option.getAttribute('data-total');
+      const mcq = option.getAttribute('data-mcq');
+      const descriptive = option.getAttribute('data-descriptive');
+      
+      console.log('Exam data extracted:', { total, mcq, descriptive });
+      
+      const totalEl = document.getElementById('totalMarks');
+      const mcqEl = document.getElementById('mcqCount');
+      const descriptiveEl = document.getElementById('descriptiveCount');
+      
+      console.log('DOM elements found:', { 
+        card: !!card, 
+        totalEl: !!totalEl, 
+        mcqEl: !!mcqEl, 
+        descriptiveEl: !!descriptiveEl 
+      });
+      
+      if (!card || !totalEl || !mcqEl || !descriptiveEl) {
+        console.error('Missing DOM elements');
+        return;
+      }
+      
+      if (total) { 
+        console.log('Setting exam meta data...');
+        totalEl.innerText = total; 
+        mcqEl.innerText = mcq || '0'; 
+        descriptiveEl.innerText = descriptive || '0'; 
+        
+        // Force show the card
+        card.style.display = 'block';
+        card.style.visibility = 'visible';
+        
+        console.log('Exam meta card displayed with data:', { total, mcq, descriptive });
+        console.log('Card display style after setting:', card.style.display);
+        
+        // Add a red border temporarily to make it visible for debugging
+        card.style.border = '2px solid red';
+        
+      } else { 
+        card.style.display = 'none'; 
+        console.log('No total data found, hiding card');
       }
     },
 
