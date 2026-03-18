@@ -74,8 +74,6 @@
             <div style="font-family:'Fraunces',serif;font-size:16px;font-weight:700;color:#e2e8f0;">Quiz Type Builder</div>
           </div>
           
-          <div id="validationDisplay" style="margin-bottom:16px;"></div>
-          
           <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;align-items:end;">
             <div>
               <label class="form-label-dark">Category</label>
@@ -558,25 +556,49 @@ $(document).ready(function() {
   const quesInput = document.getElementById('ques');
   const qTypeSelect = document.getElementById('q_type');
   
+  console.log('=== INITIALIZING VALIDATION ===');
+  console.log('Questions input found:', !!quesInput);
+  console.log('Question type select found:', !!qTypeSelect);
+  
   if (quesInput && qTypeSelect) {
     // Real-time validation on input
     quesInput.addEventListener('input', function() {
+      console.log('Questions input changed:', this.value);
       updateRealTimeValidation();
     });
     
     // Real-time validation on type change
     qTypeSelect.addEventListener('change', function() {
+      console.log('Question type changed:', this.value);
       updateRealTimeValidation();
     });
+    
+    // Also trigger on Select2 change events
+    $(qTypeSelect).on('change', function() {
+      console.log('Select2 question type changed:', $(this).val());
+      updateRealTimeValidation();
+    });
+    
+    // Initial validation display after a short delay
+    setTimeout(() => {
+      console.log('Triggering initial validation...');
+      updateRealTimeValidation();
+    }, 500);
+  } else {
+    console.error('Could not find validation elements!');
   }
 });
 
 function updateRealTimeValidation() {
+  console.log('=== updateRealTimeValidation called ===');
+  
   // Get TRMS exam limits
   const examSelect = document.getElementById('examSelect');
   const selectedExam = examSelect.options[examSelect.selectedIndex];
   const maxMcq = parseInt(selectedExam.getAttribute('data-mcq')) || 0;
   const maxDescriptive = parseInt(selectedExam.getAttribute('data-descriptive')) || 0;
+
+  console.log('Exam limits:', { maxMcq, maxDescriptive });
 
   // Calculate current totals by question type
   const currentMcqTotal = blueprintRows
@@ -587,35 +609,103 @@ function updateRealTimeValidation() {
     .filter(r => r.type === 'Descriptive')
     .reduce((sum, r) => sum + (r.ques || 0), 0);
 
+  console.log('Current totals:', { currentMcqTotal, currentDescriptiveTotal });
+
   // Get current input values
   const qType = document.getElementById('q_type').value;
   const newQuestions = parseInt(document.getElementById('ques').value) || 0;
+
+  console.log('Input values:', { qType, newQuestions });
 
   // Calculate projected totals
   const projectedMcq = qType === 'MCQ' ? currentMcqTotal + newQuestions : currentMcqTotal;
   const projectedDescriptive = qType === 'Descriptive' ? currentDescriptiveTotal + newQuestions : currentDescriptiveTotal;
 
-  // Update validation display with real-time feedback
-  const validationDisplay = document.getElementById('validationDisplay');
-  if (validationDisplay) {
-    const mcqStatus = projectedMcq > maxMcq ? '⚠️' : '✅';
-    const descriptiveStatus = projectedDescriptive > maxDescriptive ? '⚠️' : '✅';
-    
-    const mcqColor = projectedMcq > maxMcq ? '#ef4444' : '#10b981';
-    const descriptiveColor = projectedDescriptive > maxDescriptive ? '#ef4444' : '#10b981';
-    
-    validationDisplay.innerHTML = `
-      <div style="font-size:12px;margin-top:8px;">
-        <div style="color: ${mcqColor};">
-          MCQ: ${currentMcqTotal} / ${maxMcq} → ${projectedMcq} ${mcqStatus}
-          ${projectedMcq > maxMcq ? `<span style="font-size:11px;">(Exceeds by ${projectedMcq - maxMcq})</span>` : ''}
-        </div>
-        <div style="color: ${descriptiveColor};">
-          Descriptive: ${currentDescriptiveTotal} / ${maxDescriptive} → ${projectedDescriptive} ${descriptiveStatus}
-          ${projectedDescriptive > maxDescriptive ? `<span style="font-size:11px;">(Exceeds by ${projectedDescriptive - maxDescriptive})</span>` : ''}
-        </div>
-      </div>
-    `;
+  console.log('Projected totals:', { projectedMcq, projectedDescriptive });
+
+  // Update the questions input field styling and remaining count
+  const quesInput = document.getElementById('ques');
+  const quesContainer = quesInput.parentElement;
+  
+  if (qType === 'MCQ') {
+    const remaining = maxMcq - projectedMcq;
+    updateQuestionField(quesInput, quesContainer, projectedMcq, maxMcq, remaining, 'MCQ');
+  } else if (qType === 'Descriptive') {
+    const remaining = maxDescriptive - projectedDescriptive;
+    updateQuestionField(quesInput, quesContainer, projectedDescriptive, maxDescriptive, remaining, 'Descriptive');
+  } else {
+    // Reset field if no type selected
+    resetQuestionField(quesInput, quesContainer);
+  }
+}
+
+function updateQuestionField(input, container, current, max, remaining, type) {
+  // Remove existing validation message
+  const existingMsg = container.querySelector('.validation-message');
+  if (existingMsg) {
+    existingMsg.remove();
+  }
+
+  // Determine color and status
+  let borderColor, bgColor, statusColor, statusText, icon;
+  
+  if (current > max) {
+    borderColor = '#ef4444';
+    bgColor = 'rgba(239, 68, 68, 0.1)';
+    statusColor = '#ef4444';
+    statusText = `Exceeds by ${Math.abs(remaining)}`;
+    icon = '⚠️';
+  } else if (current >= max * 0.8) {
+    borderColor = '#f59e0b';
+    bgColor = 'rgba(245, 158, 11, 0.1)';
+    statusColor = '#f59e0b';
+    statusText = `${remaining} remaining`;
+    icon = '⚡';
+  } else {
+    borderColor = '#10b981';
+    bgColor = 'rgba(16, 185, 129, 0.1)';
+    statusColor = '#10b981';
+    statusText = `${remaining} remaining`;
+    icon = '✅';
+  }
+
+  // Update input field styling
+  input.style.borderColor = borderColor;
+  input.style.backgroundColor = bgColor;
+  input.style.borderWidth = '2px';
+  input.style.boxShadow = `0 0 0 3px ${borderColor}20`;
+
+  // Add validation message
+  const validationMsg = document.createElement('div');
+  validationMsg.className = 'validation-message';
+  validationMsg.style.cssText = `
+    font-size: 12px;
+    font-weight: 600;
+    color: ${statusColor};
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  `;
+  validationMsg.innerHTML = `
+    <span>${icon}</span>
+    <span>${statusText} (${current}/${max} ${type})</span>
+  `;
+  
+  container.appendChild(validationMsg);
+}
+
+function resetQuestionField(input, container) {
+  // Reset input field styling
+  input.style.borderColor = '';
+  input.style.backgroundColor = '';
+  input.style.borderWidth = '';
+  input.style.boxShadow = '';
+
+  // Remove validation message
+  const existingMsg = container.querySelector('.validation-message');
+  if (existingMsg) {
+    existingMsg.remove();
   }
 }
 
